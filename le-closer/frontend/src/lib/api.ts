@@ -1,4 +1,4 @@
-const BASE = "http://localhost:8000";
+const BASE = "http://localhost:8003";
 
 export async function api(path: string, method = "GET", body?: any) {
   const resp = await fetch(BASE + path, {
@@ -10,5 +10,5 @@ export async function api(path: string, method = "GET", body?: any) {
 }
 
 export function eventsWs(callId: string) {
-  return new WebSocket(`ws://localhost:8000/ws/events/${callId}`);
+  return new WebSocket(`ws://localhost:8003/ws/events/${callId}`);
 }

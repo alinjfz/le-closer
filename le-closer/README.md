@@ -22,7 +22,7 @@ call, crunches the deal numbers, and handles the follow-up after the call.
 cd backend
 pip install -e .
 cp ../.env.example ../.env   # add MISTRAL_API_KEY (optional: mock mode works without)
-uvicorn app.main:app --port 8000
+uvicorn app.main:app --port 8003
 
 # Frontend
 cd frontend

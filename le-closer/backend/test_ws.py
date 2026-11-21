@@ -5,7 +5,7 @@ import urllib.request
 
 import websockets
 
-BASE = "http://localhost:8000"
+BASE = "http://localhost:8003"
 
 
 def post(path, body):
@@ -20,7 +20,7 @@ async def main():
     print("call:", cid)
 
     events = []
-    async with websockets.connect(f"ws://localhost:8000/ws/events/{cid}") as ws:
+    async with websockets.connect(f"ws://localhost:8003/ws/events/{cid}") as ws:
         async def reader():
             try:
                 async for msg in ws:
