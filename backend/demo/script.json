@@ -1,23 +1,21 @@
-{
-  "_note": "FICTIONAL demo script for offline/demo mode. No real people or calls. The scripted client explicitly consents to transcription, mirroring the consent gate the real bot enforces.",
-  "lines": [
-    {"speaker": "rep", "text": "Guten Tag, Dr. Weber — thank you for taking the time today. Before we start: with your permission I'll have our assistant transcribe this call so we both get accurate notes. Is that OK?"},
-    {"speaker": "client", "text": "Yes, that is fine. Please go ahead."},
-    {"speaker": "rep", "text": "Thank you. I sent you the agenda — five topics: your current process, SAP integration, security and hosting, pricing, and next steps."},
-    {"speaker": "client", "text": "We run our entire operation on SAP S/4HANA — customs declarations, shipment tracking, invoicing. Does your platform integrate with it?"},
-    {"speaker": "rep", "text": "Good question — I am checking that live right now. And on security: I will send you our security document and the data processing agreement this week."},
-    {"speaker": "client", "text": "We will need to review GDPR compliance and where the data is hosted in detail. Do you host in the EU?"},
-    {"speaker": "rep", "text": "Yes — Paris region, EU-only residency, SOC 2 Type II. The security document covers all of that."},
-    {"speaker": "client", "text": "Our current process is very manual. Customs paperwork is checked by hand by four people, and errors cost us real money — last quarter we had two misfiled declarations."},
-    {"speaker": "rep", "text": "That is exactly the kind of pain we automate. Who else is involved in the decision on your side?"},
-    {"speaker": "client", "text": "I will need to align with our works council, and our CFO signs off on anything above fifty thousand euros."},
-    {"speaker": "client", "text": "Roughly speaking, we are about 300 users across three sites, and our budget for this is around 90,000 euros per year."},
-    {"speaker": "client", "text": "On pricing: list price aside, we would need at least 25% discount to make this work."},
-    {"speaker": "rep", "text": "I understand. Let me be direct with you: our floor for 300 seats is 12%, and I can offer that if we sign a two-year contract today."},
-    {"speaker": "client", "text": "A two-year contract is not possible for us right now — budget is approved annually. What can you do at 15%?"},
-    {"speaker": "client", "text": "One more thing — how long would implementation take? We need this running before Q3."},
-    {"speaker": "rep", "text": "Typical onboarding is four to six weeks including the SAP connector. I can put that in writing as a pilot plan with milestones."},
-    {"speaker": "client", "text": "That sounds reasonable. Send me the pilot plan, the security document, and a written proposal with the 12% two-year option. We will decide internally within two weeks."},
-    {"speaker": "rep", "text": "Perfect — I'll send all three today, and I'll follow up next week if I don't hear back. Thank you, Dr. Weber."}
-  ]
-}
+[
+  {"speaker": "rep", "text": "Guten Tag, Dr. Weber — thanks for taking the time today. With your permission I'll have our assistant transcribe this call so we both get accurate notes. Is that OK?"},
+  {"speaker": "client", "text": "Yes, that's fine. Please go ahead."},
+  {"speaker": "rep", "text": "Thank you. Agenda for today: your current sensor architecture, security and compliance, pricing at your scale, and next steps."},
+  {"speaker": "rep", "text": "Let's start with your current architecture — how do your sensors talk to your systems today?"},
+  {"speaker": "client", "text": "We run about 1,200 sensors across 3 plants. They publish over MQTT to an on-prem gateway, which feeds our SAP ERP in a nightly batch."},
+  {"speaker": "rep", "text": "Got it. One follow-up: what's the total scale of operations — sensors, plants, and how many operators work with the data?"},
+  {"speaker": "client", "text": "To be precise: 1,200 sensors, 3 plants, about 40 operators, and we'd prefer a 2-year contract."},
+  {"speaker": "rep", "text": "I've got the numbers for that scale ready for you now — and we also have a workflow diagram of exactly this setup produced; I can share it with you in the call chat right now."},
+  {"speaker": "client", "text": "Does the wrapper integrate with SAP directly, or only through the gateway?"},
+  {"speaker": "client", "text": "On security: do the wrappers enforce mutual TLS on each device?"},
+  {"speaker": "client", "text": "One thing on our process — we'll need to take this to the Lenkungsausschuss before anything is signed."},
+  {"speaker": "rep", "text": "Understood — the SAP integration check is already done and live in your copilot, and I've dropped the security whitepaper and pen-test summary into the call chat for you right now."},
+  {"speaker": "client", "text": "And what would pricing look like for us?"},
+  {"speaker": "rep", "text": "At your scale you're in our Plant volume tier — the quote is ready: €2.40 per sensor per month, about €69k a year over two years. If you scale past 2,000 sensors it drops to €1.80."},
+  {"speaker": "client", "text": "We also evaluated a competitor's wrapper — they quoted lower, to be honest."},
+  {"speaker": "client", "text": "GDPR compliance and EU-only hosting are must-haves for us."},
+  {"speaker": "rep", "text": "We host EU-only in the Paris region and we're SOC 2 Type II — the whitepaper covers both, plus the data processing agreement."},
+  {"speaker": "client", "text": "Alright — let's wrap up with next steps then."},
+  {"speaker": "rep", "text": "Everything you need is already in the call chat — pricing, the workflow, the whitepaper. If the steering committee is happy, we kick off the two-week pilot next week."}
+]

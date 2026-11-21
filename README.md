@@ -130,7 +130,7 @@ npm install
 npm run dev                  # http://localhost:5173
 ```
 
-Open the UI → enter client (default: **Müller Logistik GmbH**, Dr. Anna Weber) → enable
+Open the UI → enter client (default: **NordWerk Maschinenbau AG**, Dr. Anna Weber) → enable
 **demo mode** → **Start demo call** → ▶ **Play demo script**.
 
 No API key? Everything still runs end-to-end in mock mode (deterministic router,

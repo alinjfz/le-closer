@@ -209,7 +209,7 @@ async def demo_play(call_id: str, body: dict | None = None):
     if not state:
         return {"error": "not found"}
     script_path = Path(__file__).parent.parent / "demo" / "script.json"
-    raw = json.loads(script_path.read_text()) if script_path.exists() else []
+    raw = json.loads(script_path.read_text(encoding="utf-8")) if script_path.exists() else []
     lines = raw.get("lines", raw) if isinstance(raw, dict) else raw
     if not lines:
         lines = [
@@ -217,7 +217,7 @@ async def demo_play(call_id: str, body: dict | None = None):
         {"speaker": "rep", "text": "I'll send you the security document this week."},
         {"speaker": "client", "text": "We are about 300 users and would need at least 25% discount."},
     ]
-    asyncio.create_task(_play_script(state, lines, body.get("delay", 2.0) if body else 2.0))
+    asyncio.create_task(_play_script(state, lines, body.get("delay", 0.8) if body else 0.8))
     return {"ok": True, "lines": len(lines)}
 
 

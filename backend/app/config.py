@@ -16,9 +16,9 @@ VOXTRAL_MODEL = os.getenv("VOXTRAL_MODEL", "voxtral-mini-transcribe-realtime-3")
 VOXTRAL_TARGET_DELAY_MS = int(os.getenv("VOXTRAL_TARGET_DELAY_MS", "480"))
 VOXTRAL_SAMPLE_RATE = 16000
 CONTEXT_BIAS = [
-    "Mistral Studio", "Le Chonk", "Voxtral", "Müller Logistik",
-    "Dr. Anna Weber", "SAP S/4HANA", "Salesforce", "HubSpot",
-    "Workday", "Slack", "Microsoft Teams", "GDPR", "Betriebsrat",
+    "Mistral Studio", "Le Chonk", "Voxtral", "NordWerk", "IoT",
+    "Dr. Anna Weber", "sensor", "MQTT", "gateway", "security wrapper",
+    "SAP ERP", "Lenkungsausschuss", "GDPR", "SOC 2", "mutual TLS", "pen-test",
 ]
 
 # Card rules (section 8.3)

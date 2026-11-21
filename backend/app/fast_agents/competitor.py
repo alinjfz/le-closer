@@ -11,9 +11,13 @@ of Mistral Studio, 1 question to ask."""
 
 async def run(state, store, segment, label) -> None:
     body = await chat_text(config.ROUTER_MODEL, SYSTEM, f"Competitor mentioned: {label.get('entity','?')}\nContext: {segment.text}")
+    if not body:
+        body = ("**Acknowledge:** their wrapper covers basic encryption — a fair baseline.\n"
+                "**Differentiate:** we include per-device mTLS certificates, EU-only hosting (Paris) and a live integration check at **every** tier — no per-gateway fees.\n"
+                "**Ask:** \"Does their quote include device certificates and EU residency?\"")
     await add_card(state, store, Card(
         id=new_id("card"), kind="competitor",
         title=f"Competitor: {label.get('entity','mentioned')}",
-        body=body or "Acknowledge their strength, then differentiate on EU hosting + agents.",
+        body=body,
         confidence=label.get("confidence", 0.8), segment_id=segment.id,
     ))

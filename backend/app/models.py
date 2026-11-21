@@ -52,6 +52,8 @@ class FlowState(BaseModel):
 
 class DealFacts(BaseModel):
     seats: Optional[int] = None
+    sensors: Optional[int] = None
+    plants: Optional[int] = None
     list_price_per_seat: Optional[float] = None
     currency: str = "EUR"
     requested_discount_pct: Optional[float] = None
@@ -69,14 +71,18 @@ class DealNumbers(BaseModel):
     margin_pct: Optional[float] = None
     client_roi_estimate: Optional[float] = None
     within_guardrails: bool = True
+    # IoT scale quote (sensor volume tier)
+    scale_tier: Optional[str] = None
+    quote_per_sensor_month: Optional[float] = None
+    quote_annual: Optional[float] = None
 
 
 class ClientProfile(BaseModel):
-    company: str = "Müller Logistik GmbH"
+    company: str = "NordWerk Maschinenbau AG"
     country: str = "DE"
     people: list[dict] = Field(default_factory=list)
     cultural_briefing: Optional[str] = None
-    industry: str = "Logistics"
+    industry: str = "Manufacturing"
 
 
 class ActivityEntry(BaseModel):

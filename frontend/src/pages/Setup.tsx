@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { useCallStore } from "../store/callStore";
 
 export default function Setup({ onStart }: { onStart: () => void }) {
-  const [company, setCompany] = useState("Müller Logistik GmbH");
+  const [company, setCompany] = useState("NordWerk Maschinenbau AG");
   const [person, setPerson] = useState("Dr. Anna Weber, Head of IT");
   const [repName, setRepName] = useState("Alex");
   const [meetUrl, setMeetUrl] = useState("");
@@ -24,7 +24,7 @@ export default function Setup({ onStart }: { onStart: () => void }) {
       client: {
         company,
         country: "DE",
-        industry: "Logistics",
+        industry: "Manufacturing",
         people: [{ name: person.split(",")[0], title: person.split(",")[1]?.trim() || "" }],
       },
       mode: "sales",
@@ -59,7 +59,7 @@ export default function Setup({ onStart }: { onStart: () => void }) {
     setLoading(true);
     setError("");
     const res = await api("/calls", "POST", {
-      client: { company, country: "DE", industry: "Logistics",
+      client: { company, country: "DE", industry: "Manufacturing",
         people: [{ name: person.split(",")[0], title: person.split(",")[1]?.trim() || "" }] },
       mode: "sales", demo: false, meet_url: null, rep_name: repName,
     });

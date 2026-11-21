@@ -14,9 +14,21 @@ async def run(state, store, segment, label) -> None:
         config.ROUTER_MODEL, SYSTEM,
         f"Objection: {segment.text}",
     )
+    if not body:
+        low = segment.text.lower()
+        if "pric" in low or "cost" in low or "discount" in low:
+            body = ("**What they mean:** budget pressure, not disinterest.\n"
+                    "**Suggested reply:** at your scale (see quote card) you're already in a volume tier — the lever is contract length, not list price.\n"
+                    "**Ask back:** \"Is the concern the total or the per-sensor rate?\"")
+        elif "competitor" in low or "lower" in low:
+            body = ("**What they mean:** a comparison is on the table.\n"
+                    "**Suggested reply:** competitor quotes often exclude per-device security (mTLS) and EU hosting — both included in every tier here.\n"
+                    "**Ask back:** \"What's included in their quote — device certs and EU residency?\"")
+        else:
+            body = "Acknowledge, reframe, ask what would work instead."
     await add_card(state, store, Card(
         id=new_id("card"), kind="objection",
         title="Objection",
-        body=body or "Acknowledge, reframe, ask what would work instead.",
+        body=body,
         confidence=label.get("confidence", 0.8), segment_id=segment.id,
     ))

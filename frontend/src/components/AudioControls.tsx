@@ -14,7 +14,7 @@ export default function AudioControls() {
     api(`/calls/${call.call_id}/inject`, "POST", { speaker, text });
     setText("");
   };
-  const playDemo = () => api(`/calls/${call.call_id}/demo/play`, "POST", { delay: 2.5 });
+  const playDemo = () => api(`/calls/${call.call_id}/demo/play`, "POST", { delay: 0.8 });
 
   if (!call.demo) return null;
 

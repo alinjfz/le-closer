@@ -28,13 +28,56 @@ briefing for a German B2B client (direct, factual, formal 'Sie', detail/data ove
 GDPR & EU hosting, works council, consent to record). Max 10 bullet lines."""
 
 
+_DEMO_NOTES = """# Post-call notes — {company}
+
+## Summary
+Discovery call with {person}. NordWerk runs ~1,200 IoT sensors across 3 plants, publishing MQTT to an on-prem gateway feeding SAP ERP via nightly batch. Interest in the security wrapper is driven by device-level security and GDPR / EU-hosting requirements.
+
+## Client needs & pains
+- Secure sensor traffic end-to-end (mTLS per device)
+- GDPR compliance, EU-only hosting (Paris region)
+- Reduce manual nightly-batch handling
+
+## Decisions
+- Must go through the **Lenkungsausschuss** (steering committee) before sign-off
+- 2-year contract preferred
+
+## Pricing / quote
+- Volume tier: Plant (500–1,999 sensors) at €2.40/sensor/mo → **≈ €69,120/yr** (1,200 sensors, 2 yr)
+- Scale-up: Enterprise tier (2,000+ sensors) drops to €1.80/sensor/mo
+
+## Action items
+- Quote, workflow diagram, whitepaper + pen-test summary were shared in the call chat during the call
+- Kick off 2-week pilot next week after steering-committee approval
+"""
+
+_DEMO_FOLLOWUP = """Subject: Follow-up — IoT security wrapper for {company}
+
+Dear Dr. Weber,
+
+Thank you for the call today. As discussed:
+
+- **Quote (shared in the call chat during our call):** Plant tier (500–1,999 sensors) — €2.40/sensor/month, ≈ €69,120/year for 1,200 sensors over 2 years. At 2,000+ sensors the Enterprise tier drops to €1.80/sensor/month.
+- **Security:** mutual TLS on every device, TLS 1.3 in transit, AES-256 at rest, EU-only hosting (Paris), SOC 2 Type II — whitepaper and pen-test summary were shared in the call chat.
+- **Architecture:** wrapper slots between your sensors and the on-prem gateway; SAP ERP integration via REST + MCP connector (workflow diagram shared in call chat).
+- **Next steps:** 2-week pilot next week once the Lenkungsausschuss approves.
+
+Best regards,
+The Rep"""
+
+
 async def run_post_call(state: CallState, store: CallStore) -> None:
+    from ..mistral_client import has_api_key
+
     await store.log_activity(state, "PostCallWorkflow", "building notes…", "working")
     transcript = "\n".join(f"{s.speaker.upper()}: {s.text}" for s in state.segments[-80:])
     notes_md = await chat_text(
         config.HEAVY_MODEL, NOTES_SYSTEM,
         f"Transcript:\n{transcript}\n\nFacts: {state.facts.model_dump()}\nFlow: {state.flow.model_dump()}",
     )
+    if not has_api_key():
+        person = state.client.people[0]["name"] if state.client.people else "the client"
+        notes_md = _DEMO_NOTES.format(company=state.client.company, person=person)
     state.notes = {"markdown": notes_md or "# Post-call notes\n(No API key — mock notes.)", "ts": time.time()}
     await store.emit(state.call_id, "notes.ready", state.notes)
 
@@ -42,11 +85,9 @@ async def run_post_call(state: CallState, store: CallStore) -> None:
     state.followup_draft = await chat_text(
         config.HEAVY_MODEL, FOLLOWUP_SYSTEM,
         f"Notes:\n{notes_md}\nClient: {state.client.company}, {state.client.country}",
-    ) or (
-        f"Subject: Follow-up — Mistral Studio for {state.client.company}\n\n"
-        f"Dear Dr. Weber,\n\nThank you for the call today. As discussed, Mistral Studio …\n\n"
-        "Best regards,\nThe Rep"
     )
+    if not has_api_key():
+        state.followup_draft = _DEMO_FOLLOWUP.format(company=state.client.company)
     state.followup_status = "awaiting_approval"
     await store.emit(state.call_id, "followup.awaiting_approval", state.followup_draft)
     await store.log_activity(state, "PostCallWorkflow", "waiting for rep approval (wait_for_input)", "working")

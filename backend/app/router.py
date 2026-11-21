@@ -33,6 +33,7 @@ async def dispatch_labels(state: CallState, store: CallStore, segment, labels: l
     from .fast_agents import (
         answer_card, objection, competitor, suggested_question, flow_tracker,
         promise_tracker, numbers_extractor, mindmap, cultural_cue, integration_check,
+        prototype, reference,
     )
 
     handlers = {
@@ -44,6 +45,9 @@ async def dispatch_labels(state: CallState, store: CallStore, segment, labels: l
         "number_fact": numbers_extractor.run,
         "cultural_signal": cultural_cue.run,
         "integration_question": integration_check.run,
+        "architecture_overview": mindmap.run,
+        "prototype_request": prototype.run,
+        "rep_reference": reference.run,
     }
     for label in labels:
         ltype = label.get("type", "none")
@@ -72,11 +76,16 @@ def upsert_card(state: CallState, card: Card) -> Card:
             existing.sources = card.sources
             return existing
     state.cards.append(card)
-    # demote oldest active cards to history if over the limit
+    # demote oldest active cards to history if over the limit — but never demote
+    # priority cards (deal / integration / in-call research): those stay in the
+    # live view until the rep references them on the call.
+    priority_kinds = {"deal", "integration", "research"}
     active = [c for c in state.cards if c.status == "active"]
     while len(active) > config.MAX_ACTIVE_CARDS:
-        oldest = active.pop(0)
+        demotable = [c for c in active if not (c.kind in priority_kinds and not c.meta.get("precall"))]
+        oldest = (demotable or active).pop(0)
         oldest.status = "history"
+        active = [c for c in state.cards if c.status == "active"]
     return card
 
 

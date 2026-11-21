@@ -14,11 +14,11 @@ _cache: dict[str, str] = {}
 def _load() -> dict[str, str]:
     if not _cache:
         for p in _DOCS_DIR.glob("*.md"):
-            _cache[p.stem] = p.read_text()
+            _cache[p.stem] = p.read_text(encoding="utf-8")
         docs = _DOCS_DIR / "docs"
         if docs.exists():
             for p in docs.rglob("*.md"):
-                _cache[str(p.relative_to(docs))] = p.read_text()
+                _cache[str(p.relative_to(docs))] = p.read_text(encoding="utf-8")
     return _cache
 
 

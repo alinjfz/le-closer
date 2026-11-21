@@ -15,7 +15,7 @@ def _load_pricing() -> dict:
     if _PRICING is None:
         path = Path(__file__).parent.parent / "data" / "pricing.yaml"
         if path.exists():
-            _PRICING = yaml.safe_load(path.read_text()) or {}
+            _PRICING = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         else:
             _PRICING = {}
     return _PRICING
@@ -32,6 +32,45 @@ def discount_floor_pct(seats: int | None, contract_years: int | None) -> float:
         if (seats or 0) >= min_seats and (contract_years or 0) >= min_years:
             floor = max(floor, step.get("floor_pct", floor))
     return floor
+
+
+def scale_quote(sensors: int | None, contract_years: int | None, pricing: dict) -> dict | None:
+    """Map sensor count to the best matching volume tier (pricing.yaml scale_tiers)."""
+    if not sensors:
+        return None
+    tiers = pricing.get("scale_tiers", [])
+    best = None
+    for t in tiers:
+        if sensors >= t.get("min_sensors", 0) and (best is None or t.get("min_sensors", 0) > best.get("min_sensors", 0)):
+            best = t
+    if not best:
+        return None
+    per_sensor = float(best.get("price_per_sensor_month", 0))
+    years = contract_years or 1
+    return {
+        "label": str(best.get("label", "")),
+        "per_sensor_month": per_sensor,
+        "annual": sensors * per_sensor * 12 * years,
+        "years": years,
+    }
+
+
+def tier_comparison(sensors: int | None, contract_years: int | None, pricing: dict) -> list[dict]:
+    """All volume tiers with their annual quote at this sensor count — used to show
+    how the price changes if the client scales up (next tier is the suggestion)."""
+    if not sensors:
+        return []
+    years = contract_years or 1
+    out = []
+    for t in sorted(pricing.get("scale_tiers", []), key=lambda x: -x.get("min_sensors", 0)):
+        pps = float(t.get("price_per_sensor_month", 0))
+        out.append({
+            "label": str(t.get("label", "")),
+            "min_sensors": int(t.get("min_sensors", 0)),
+            "per_sensor_month": pps,
+            "annual": sensors * pps * 12 * years,
+        })
+    return out
 
 
 def compute_numbers(facts: DealFacts) -> DealNumbers:
@@ -62,6 +101,8 @@ def compute_numbers(facts: DealFacts) -> DealNumbers:
         if price > 0:
             roi = annual_value / price
 
+    quote = scale_quote(facts.sensors, facts.contract_years, pricing)
+
     return DealNumbers(
         deal_value=deal_value,
         discount_floor_pct=floor,
@@ -69,6 +110,9 @@ def compute_numbers(facts: DealFacts) -> DealNumbers:
         margin_pct=margin,
         client_roi_estimate=roi,
         within_guardrails=within,
+        scale_tier=quote["label"] if quote else None,
+        quote_per_sensor_month=quote["per_sensor_month"] if quote else None,
+        quote_annual=quote["annual"] if quote else None,
     )
 
 
