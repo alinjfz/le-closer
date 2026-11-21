@@ -21,7 +21,7 @@ interface CallState {
   followup_status: string; ended: boolean;
   meet_url: string | null; bot_status: string; bot_detail: string; started_at: number;
   settings: { tts_enabled: boolean; translation_language: string };
-  assistant_answers: { id: string; question: string; text: string; ts: number }[];
+  assistant_answers: { id: string; question: string; text: string; ts: number; mode?: "research" | "meeting"; sources?: { title: string; url: string }[]; searched?: boolean; researched_at?: string }[];
   personal_notes: string;
   rep_name: string;
 }

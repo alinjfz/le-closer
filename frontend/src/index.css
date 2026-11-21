@@ -304,3 +304,6 @@ input[type="checkbox"], meter { accent-color: var(--accent); }
 .setup-intro h1 .text-accent { color: var(--text); }
 .suggestion-followup .suggestion-kind { display: inline-block; color: #315D94; background: #EEF4FC; border-radius: 4px; padding: 2px 7px; }
 .setup-form { box-shadow: 0 4px 20px #10182806; }
+
+.answer-sources { display: flex; flex-wrap: wrap; gap: .4rem .75rem; margin-top: .75rem; font-size: .75rem; color: var(--muted); }
+.answer-sources a { color: var(--accent); text-decoration: underline; overflow-wrap: anywhere; }

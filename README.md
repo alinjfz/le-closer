@@ -279,3 +279,11 @@ Live calls use general multilingual cultural explanations plus a phrase glossary
 Sensor quotes separate annual and full-contract amounts: 1,200 sensors at €2.40/month cost €34,560/year, or €69,120 for two years. The volume-tier quote drives the deal total when sensor counts are present; operator counts are not priced as an additional seat-license deal. Scenario-specific offline copy is restricted to demo calls.
 
 Integration regressions: `cd backend && python3 -m unittest test_merge_choices -v`.
+
+## Asking copilot to research
+
+Address “Copilot”, “co-pilot”, “co pilot”, or “Le Closer” in either audio channel. A wake word on its own also applies to the next utterance from that speaker within 15 seconds. Requests start without waiting for note updates.
+
+Weather, forecasts, news, current information, and explicit research/search requests use Mistral's hosted `web_search` tool through the Conversations API. Answers appear in Live copilot with source links when returned by the provider, and use the existing mute/voice controls. For example: “Oh, co-pilot, can you find tomorrow's weather in Paris, France?” If only a country is supplied for weather, copilot asks for a city or region. Address it again to answer, e.g. “Co-pilot, Paris.” Relative dates use `APP_TIMEZONE` (default Europe/London); `RESEARCH_MODEL` defaults to `mistral-medium-latest`.
+
+Research requests include the question and recent research exchanges, rather than the meeting transcript or notes. A failed search produces an explicit failure message instead of a forecast from model memory. Tests: `cd backend && python3 -m unittest test_research -v`.

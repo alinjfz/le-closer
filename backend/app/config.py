@@ -16,7 +16,7 @@ VOXTRAL_MODEL = os.getenv("VOXTRAL_MODEL", "voxtral-mini-transcribe-realtime-3")
 VOXTRAL_TARGET_DELAY_MS = int(os.getenv("VOXTRAL_TARGET_DELAY_MS", "480"))
 VOXTRAL_SAMPLE_RATE = 16000
 CONTEXT_BIAS = [
-    "Mistral Studio", "Le Chonk", "Voxtral", "NordWerk", "IoT",
+    "Mistral Studio", "Le Chonk", "Voxtral", "NordWerk", "IoT", "copilot", "co-pilot", "Le Closer",
     "Dr. Anna Weber", "sensor", "MQTT", "gateway", "security wrapper",
     "SAP ERP", "Lenkungsausschuss", "GDPR", "SOC 2", "mutual TLS", "pen-test",
 ]
@@ -41,3 +41,6 @@ CODE_MODEL = os.getenv("CODE_MODEL", "mistral-large-latest")
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "mistral-medium-latest")
 TTS_MODEL = os.getenv("TTS_MODEL", "voxtral-mini-tts-3-0")
 TTS_VOICE_ID = os.getenv("TTS_VOICE_ID", "gb_jane_neutral")
+
+RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "mistral-medium-latest")
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/London")

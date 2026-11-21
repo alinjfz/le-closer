@@ -54,6 +54,7 @@ class CallStore:
         self.assistant_locks: dict[str, asyncio.Lock] = {}
         self.jobs: dict[str, set[asyncio.Task]] = {}
         self.live_revisions: dict[str, int] = {}
+        self.pending_invocations: dict[tuple[str, str], tuple[float, str]] = {}
 
     def spawn(self, call_id: str, coroutine) -> asyncio.Task:
         task = asyncio.create_task(coroutine)
@@ -74,6 +75,9 @@ class CallStore:
             await asyncio.gather(*jobs, return_exceptions=True)
         self.assistant_locks.pop(call_id, None)
         self.live_revisions.pop(call_id, None)
+        for key in list(self.pending_invocations):
+            if key[0] == call_id:
+                self.pending_invocations.pop(key, None)
 
     def create_call(
         self,

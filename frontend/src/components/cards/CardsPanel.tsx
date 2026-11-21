@@ -19,11 +19,12 @@ export default function CardsPanel() {
       <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-3">
         {voice.error && <p role="alert" className="text-danger text-sm">{voice.error}</p>}
         {latestActivity?.status === "error" && <p role="alert" className="text-danger text-sm">{latestActivity.message}</p>}
-        {answering && <div role="status" className="copilot-answer-card"><Loader2 size={18} className="animate-spin" /> Copilot is preparing an answer…</div>}
+        {answering && <div role="status" className="copilot-answer-card"><Loader2 size={18} className="animate-spin" /> {latestActivity?.message || "Preparing an answer…"}</div>}
         {[...answers].reverse().map((answer, index) => <article key={answer.id} className="copilot-answer-card" aria-label="Copilot answer">
-          <div className="flex items-center gap-2 text-accent"><h3 className="font-medium">Copilot answer</h3></div>
+          <div className="flex items-center gap-2 text-accent"><h3 className="font-medium">{answer.mode === "research" ? "Research answer" : "Copilot answer"}</h3></div>
           <p className="text-muted text-sm mt-2">{answer.question}</p>
           <div className="mt-3" aria-live={index === 0 ? "polite" : "off"}><RichText text={answer.text} collapsible /></div>
+          {!!answer.sources?.length && <div className="answer-sources"><span>Sources</span>{answer.sources.map(source => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>)}</div>}
           {index === 0 && voice.audioUrl && voice.enabled && !call?.ended && <audio ref={voice.audioRef} src={voice.audioUrl} controls aria-label="Spoken copilot answer" className="mt-3 w-full" />}
         </article>)}
         {active.length === 0 && answers.length === 0 && !answering && <div className="copilot-empty">
