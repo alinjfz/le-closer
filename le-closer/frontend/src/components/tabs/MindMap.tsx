@@ -30,7 +30,7 @@ export default function MindMap() {
       </div>
       <div className="flex-1 min-h-0 bg-ink rounded-lg border border-slate-700 overflow-hidden"
         style={{ ["--mm-fs" as any]: `${fontSize}px` }}>
-        <style>{`.markmap-node text { font-size: var(--mm-fs) !important; font-weight: 400 !important; }`}</style>
+        <style>{`.markmap-node text { font-size: var(--mm-fs) !important; font-weight: 400 !important; fill: #ffffff !important; }`}</style>
         <svg ref={svgRef} className="w-full h-full" />
       </div>
     </div>
