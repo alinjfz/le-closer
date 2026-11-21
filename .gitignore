@@ -1,1 +1,11 @@
 mydocs/
+
+# Local authentication credentials
+client_secret*.json
+google_token*.json
+credentials*.json
+service-account*.json
+service_account*.json
+.env
+*.pem
+*.key
