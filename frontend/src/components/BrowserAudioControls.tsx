@@ -46,10 +46,9 @@ export default function BrowserAudioControls() {
   useEffect(() => { setConsent(false); }, [call?.call_id]);
   if (!call || call.demo) return null;
   return (
-    <section aria-label="Live meeting audio" className="flex flex-col gap-2">
-      <p className="text-sm text-slate-200">In Chrome or Edge, choose <b>Chrome Tab → your Google Meet → Share tab audio</b>. Keep this dashboard open.</p>
+    <section aria-label="Live meeting audio" className="flex flex-col gap-3">
       <label className="flex items-center gap-2 text-sm text-slate-300">
-        <input type="checkbox" checked={consent} disabled={call.ended} onChange={(event) => setConsent(event.target.checked)} />
+        <input type="checkbox" className="accent-amber-500 w-4 h-4 shrink-0" checked={consent} disabled={call.ended} onChange={(event) => setConsent(event.target.checked)} />
         Everyone on the call consents to transcription.
       </label>
       <div className="flex flex-wrap gap-4">

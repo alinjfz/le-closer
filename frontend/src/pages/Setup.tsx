@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AudioLines, Radio, Play, RotateCcw, Check, Loader2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useCallStore } from "../store/callStore";
 
@@ -13,6 +14,10 @@ export default function Setup({ onStart }: { onStart: () => void }) {
   const setCall = useCallStore((s) => s.setCall);
 
   const start = async () => {
+    if (!company.trim() || !person.trim() || !repName.trim()) {
+      setError("Add a company, contact, and your name to continue.");
+      return;
+    }
     setLoading(true);
     setError("");
     const res = await api("/calls", "POST", {
@@ -39,6 +44,7 @@ export default function Setup({ onStart }: { onStart: () => void }) {
 
   const resumeLatest = async () => {
     setLoading(true);
+    setError("");
     const state = await api("/calls/latest");
     if (state.call_id) {
       setCall(state);
@@ -71,53 +77,49 @@ export default function Setup({ onStart }: { onStart: () => void }) {
   };
 
   return (
-    <div className="min-h-full flex items-center justify-center p-8">
-      <div className="w-full max-w-lg bg-panel rounded-2xl p-8 shadow-2xl border border-slate-700">
-        <h1 className="text-3xl font-bold text-accent mb-1">Le Closer</h1>
-        <p className="text-slate-400 mb-6">Transcribe your Google Meet by sharing its tab audio from your browser.</p>
-
-        <label className="block text-sm text-slate-400 mb-1">Client company</label>
-        <input value={company} onChange={(e) => setCompany(e.target.value)}
-          className="w-full mb-4 bg-ink border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-accent" />
-
-        <label className="block text-sm text-slate-400 mb-1">Key contact (name, title)</label>
-        <input value={person} onChange={(e) => setPerson(e.target.value)}
-          className="w-full mb-4 bg-ink border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-accent" />
-
-        <label className="block text-sm text-slate-400 mb-1">Your name (shown in transcript)</label>
-        <input value={repName} onChange={(e) => setRepName(e.target.value)}
-          className="w-full mb-4 bg-ink border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-accent" />
-
-        <label className="block text-sm text-slate-400 mb-1">Google Meet link (optional reference)</label>
-        <div className="flex gap-2 mb-3">
-          <input value={meetUrl} onChange={(e) => { setMeetUrl(e.target.value); if (e.target.value.trim()) setDemo(false); }} placeholder="https://meet.google.com/xxx-yyyy-zzz"
-            className="flex-1 bg-ink border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-accent" />
-          <button onClick={createSpace} disabled={loading} title="Create a fresh Meet space via the Meet API"
-            className="border border-slate-600 hover:border-accent text-sm px-3 rounded-lg whitespace-nowrap">
-            + Create space
-          </button>
+    <div className="setup-page">
+      <header className="setup-header">
+        <a className="brand" href="/" aria-label="Le Closer home"><AudioLines size={25} /><span>Le Closer<span className="brand-period">.</span></span></a>
+        <span className="text-sm text-slate-400">Your sales call copilot</span>
+      </header>
+      <main className="setup-main">
+        <div className="setup-intro">
+          <span className="eyebrow">CALL WORKSPACE</span>
+          <h1>Good conversations.<br /><span className="text-accent">Better next steps.</span></h1>
+          <p>Stay with your client. Le Closer keeps track of the conversation, finds answers, and captures what comes next.</p>
+          <div className="setup-journey">
+            <div><span className="journey-marker"><Check size={16} /></span><section><h2>Prepare your call</h2><p>Add your client and choose how to join.</p></section></div>
+            <div><span className="journey-marker">2</span><section><h2>Get help in the moment</h2><p>See the transcript, suggestions, and action items as you talk.</p></section></div>
+            <div><span className="journey-marker">3</span><section><h2>Leave with a follow-up</h2><p>Review call notes and approve your follow-up email.</p></section></div>
+          </div>
+          <p className="setup-footnote">You control audio capture and approve follow-up emails before they’re sent.</p>
         </div>
-
-        <label className="flex items-center gap-2 mb-2 text-sm text-slate-300">
-          <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="accent-amber-500" />
-          Demo mode (scripted call)
-        </label>
-        {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
-
-        <button onClick={start} disabled={loading}
-          className="w-full bg-accent text-ink font-semibold rounded-lg py-3 hover:brightness-110 disabled:opacity-50">
-          {loading ? "Starting…" : demo ? "Start demo call ▶" : "Start live dashboard"}
-        </button>
-        {!demo && (
-          <p className="text-xs text-slate-500 mt-3">
-            Next, confirm participant consent and share your Meet tab audio. No bot joins the meeting.
-          </p>
-        )}
-        <button onClick={resumeLatest} disabled={loading}
-          className="w-full mt-2 border border-slate-600 hover:border-accent text-sm rounded-lg py-2 disabled:opacity-50">
-          Resume latest call ↻
-        </button>
-      </div>
+        <form className="setup-form" onSubmit={(event) => { event.preventDefault(); void start(); }}>
+          <div className="mb-6"><h2 className="text-2xl font-semibold tracking-tight">Set up your call</h2><p className="text-sm text-slate-400 mt-2">A little context helps your copilot get started.</p></div>
+          <fieldset disabled={loading} className="space-y-6 min-w-0">
+            <legend className="sr-only">Call details</legend>
+            <div className="mode-picker" role="group" aria-label="Call mode">
+              <button type="button" aria-pressed={!demo} onClick={() => setDemo(false)} className={!demo ? "selected" : ""}><Radio size={18} /><span>Live call<small>Use meeting audio</small></span>{!demo && <Check size={16} className="ml-auto" />}</button>
+              <button type="button" aria-pressed={demo} onClick={() => setDemo(true)} className={demo ? "selected" : ""}><Play size={18} /><span>Try a demo<small>Use a sample script</small></span>{demo && <Check size={16} className="ml-auto" />}</button>
+            </div>
+            <div className="space-y-4">
+              <label className="field-label" htmlFor="company">Client company<input id="company" required value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" /></label>
+              <label className="field-label" htmlFor="contact">Key contact <span className="field-hint">Name, job title</span><input id="contact" required value={person} onChange={(e) => setPerson(e.target.value)} /></label>
+              <label className="field-label" htmlFor="rep">Your name<input id="rep" required value={repName} onChange={(e) => setRepName(e.target.value)} autoComplete="given-name" /></label>
+            </div>
+            {!demo && <div className="meeting-field">
+              <label className="field-label" htmlFor="meet">Google Meet link <span className="field-hint">Optional</span></label>
+              <div className="flex gap-2 mt-2"><input id="meet" type="url" value={meetUrl} onChange={(e) => setMeetUrl(e.target.value)} placeholder="https://meet.google.com/…" className="min-w-0 flex-1" /><button type="button" onClick={createSpace} className="secondary-button whitespace-nowrap" title="Create a meeting with Google Meet">Create link</button></div>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">Keep a meeting link for reference. You’ll share tab audio after opening the workspace.</p>
+            </div>}
+          </fieldset>
+          {error && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
+          <button type="submit" disabled={loading} className="primary-button w-full mt-6">{loading ? <><Loader2 size={18} className="animate-spin" /> Preparing workspace…</> : demo ? <><Play size={17} /> Open demo workspace</> : <><Radio size={17} /> Open call workspace</>}</button>
+          <p className="text-xs text-slate-400 text-center mt-3">{demo ? "Explore with a scripted conversation. No microphone needed." : "Audio starts only when you share it. No bot joins your call."}</p>
+          <div className="resume-row"><span>Picking up where you left off?</span><button type="button" onClick={resumeLatest} disabled={loading}><RotateCcw size={14} /> Resume latest call</button></div>
+        </form>
+      </main>
+      <footer className="setup-footer">LE CLOSER <span>Present in the conversation. Ready for the next step.</span></footer>
     </div>
   );
 }

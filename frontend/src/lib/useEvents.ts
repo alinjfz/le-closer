@@ -11,13 +11,16 @@ export function useEvents(callId: string | null) {
     if (!callId) return;
     let ws: WebSocket | null = null;
     let closed = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
 
     const connect = () => {
+      if (closed) return;
       ws = eventsWs(callId);
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => { if (!closed) setConnected(true); };
       ws.onclose = () => {
+        if (closed) return;
         setConnected(false);
-        if (!closed) setTimeout(connect, 1500); // reconnect + resync
+        if (!closed) retry = setTimeout(connect, 1500); // reconnect + resync
       };
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
@@ -27,8 +30,8 @@ export function useEvents(callId: string | null) {
     connect();
 
     // initial resync
-    api(`/calls/${callId}`).then((state) => { if (state.call_id) setCall(state); });
+    api(`/calls/${callId}`).then((state) => { if (!closed && state.call_id) setCall(state); });
 
-    return () => { closed = true; ws?.close(); };
+    return () => { closed = true; clearTimeout(retry); ws?.close(); setConnected(false); };
   }, [callId]);
 }

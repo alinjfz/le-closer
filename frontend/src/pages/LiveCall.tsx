@@ -1,42 +1,35 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { Headphones } from "lucide-react";
 import TopBar from "../components/TopBar";
 import FlowPanel from "../components/flow/FlowPanel";
 import CardsPanel from "../components/cards/CardsPanel";
 import RightTabs from "../components/tabs/RightTabs";
 import ActivityBar from "../components/ActivityBar";
 import AudioControls from "../components/AudioControls";
-import { useEvents } from "../lib/useEvents";
+import BrowserAudioControls from "../components/BrowserAudioControls";
+import { useCallStore } from "../store/callStore";
 
-export default function LiveCall({ callId, onEndCall }: { callId: string | null; onEndCall: () => void }) {
-  useEvents(callId);
-  const [rightW, setRightW] = useState(360);
-  const dragging = useRef(false);
-
-  const onMove = (e: MouseEvent) => {
-    if (!dragging.current) return;
-    const w = window.innerWidth - e.clientX - 16;
-    setRightW(Math.min(640, Math.max(260, w)));
-  };
-  const onUp = () => { dragging.current = false; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  const startDrag = () => {
-    dragging.current = true;
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
-
+const VIEWS = ["Conversation", "Copilot", "Call tools"] as const;
+export default function LiveCall({ onEndCall }: { onEndCall: () => void }) {
+  const [view, setView] = useState<typeof VIEWS[number]>("Copilot");
+  const demo = useCallStore((s) => s.call?.demo);
+  const ended = useCallStore((s) => s.call?.ended);
   return (
-    <div className="h-full flex flex-col">
+    <div className="live-page">
       <TopBar onEndCall={onEndCall} />
-      <div className="flex-1 flex gap-3 p-3 min-h-0">
-        <div className="flex-[3] min-w-0 min-h-0"><FlowPanel /></div>
-        <div className="flex-[6] min-w-0 min-h-0"><CardsPanel /></div>
-        <div className="w-1.5 cursor-col-resize bg-slate-700 hover:bg-accent rounded shrink-0" onMouseDown={startDrag} title="drag to resize panel" />
-        <div style={{ width: rightW }} className="shrink-0 min-h-0"><RightTabs /></div>
-      </div>
+      <main className="live-main">
+        {!ended && <section className="audio-setup">
+          <div className="audio-heading"><Headphones size={19} className="text-accent" /><div><h2>{demo ? "Explore a sample call" : "Connect your call audio"}</h2><p>{demo ? "Play the script to see your copilot in action, or add a line below." : "Confirm consent, then share the Google Meet tab with audio enabled."}</p></div></div>
+          {demo ? <AudioControls /> : <BrowserAudioControls />}
+        </section>}
+        <nav className="mobile-views" aria-label="Workspace sections">{VIEWS.map((name) => <button key={name} aria-pressed={view === name} onClick={() => setView(name)}>{name}</button>)}</nav>
+        <div className="workspace-grid">
+          <section aria-label="Conversation" className={`workspace-conversation ${view === "Conversation" ? "mobile-active" : ""}`}><FlowPanel /></section>
+          <section aria-label="Copilot suggestions" className={`workspace-copilot ${view === "Copilot" ? "mobile-active" : ""}`}><CardsPanel /></section>
+          <aside aria-label="Call tools" className={`workspace-tools ${view === "Call tools" ? "mobile-active" : ""}`}><RightTabs /></aside>
+        </div>
+      </main>
       <ActivityBar />
-      <div className="px-4 py-2 bg-panel border-t border-slate-700">
-        <AudioControls />
-      </div>
     </div>
   );
 }

@@ -19,18 +19,18 @@ export default function AudioControls() {
   if (!call.demo) return null;
 
   return (
-    <div className="flex items-center gap-2">
-      <select value={speaker} onChange={(e) => setSpeaker(e.target.value as "rep" | "client")}
+    <div className="demo-controls flex items-center gap-2">
+      <select aria-label="Speaker" value={speaker} onChange={(e) => setSpeaker(e.target.value as "rep" | "client")}
         className="bg-ink border border-slate-600 rounded px-2 py-1 text-sm">
-        <option value="client">client</option>
-        <option value="rep">rep</option>
+        <option value="client">Client</option>
+        <option value="rep">You</option>
       </select>
       <input value={text} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && inject()}
-        placeholder="Inject a line…"
+        aria-label="Sample dialogue" placeholder="Add a line to the conversation…"
         className="flex-1 bg-ink border border-slate-600 rounded px-2 py-1 text-sm outline-none focus:border-accent" />
-      <button onClick={inject} className="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-1 rounded">Inject</button>
-      <button onClick={playDemo} className="bg-accent text-ink text-sm px-3 py-1 rounded font-medium">▶ Play demo script</button>
+      <button onClick={inject} className="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-1 rounded">Add line</button>
+      <button onClick={playDemo} className="bg-accent text-ink text-sm px-3 py-1 rounded font-medium">Play demo script</button>
     </div>
   );
 }

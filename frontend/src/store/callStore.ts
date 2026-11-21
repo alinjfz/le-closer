@@ -59,9 +59,9 @@ export const useCallStore = create<Store>((set) => ({
   connected: false,
   activeTab: "To-do",
   setTab: (t) => set({ activeTab: t }),
-  setCall: (c) => set({ call: c }),
+  setCall: (c) => set((s) => s.call?.call_id === c.call_id ? { call: c } : { call: c, partials: {}, activeTab: "To-do" }),
   setConnected: (v) => set({ connected: v }),
-  reset: () => set({ call: null, partials: {}, connected: false }),
+  reset: () => set({ call: null, partials: {}, connected: false, activeTab: "To-do" }),
   applyEvent: (type, payload) => set((s) => {
     if (!s.call) return s;
     const call = { ...s.call };

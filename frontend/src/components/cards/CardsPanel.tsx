@@ -1,26 +1,25 @@
+import { Sparkles, MessageSquareText, Search, ListChecks } from "lucide-react";
 import { useCallStore } from "../../store/callStore";
 import LiveCard from "./LiveCard";
 
 export default function CardsPanel() {
-  const cards = useCallStore((s) => s.call?.cards ?? []);
+  const call = useCallStore((s) => s.call);
+  const cards = call?.cards ?? [];
   const active = cards.filter((c) => c.status === "active" || c.status === "pinned");
   const history = cards.filter((c) => c.status === "history" || c.status === "dismissed");
-
   return (
-    <div className="h-full flex flex-col bg-panel rounded-xl border border-slate-700 p-3 min-h-0">
-      <h3 className="text-xs font-semibold text-slate-400 mb-2 shrink-0">LIVE CARDS</h3>
-      <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
-        {active.length === 0 && <p className="text-sm text-slate-500">Listening… cards appear here live.</p>}
+    <div className="workspace-panel copilot-panel">
+      <div className="panel-heading"><div className="flex items-center gap-2"><Sparkles size={18} className="text-accent" /><h2>Live copilot</h2></div><span className="text-xs text-slate-400">{active.length} suggestions</span></div>
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-3">
+        {active.length === 0 && <div className="copilot-empty">
+          <div className="empty-symbol"><Sparkles size={25} /></div>
+          <h3>{call?.ended ? "No suggestions from this call" : "Room to focus on the conversation"}</h3>
+          <p>{call?.ended ? "Suggestions generated during your call will remain here for review." : call?.demo ? "Play the demo script above. Suggestions will appear as the conversation unfolds." : "Once you share audio, your copilot will bring useful answers and suggestions here."}</p>
+          <div className="copilot-capabilities"><span><MessageSquareText size={17} /> Questions & objection support</span><span><Search size={17} /> Research & integration checks</span><span><ListChecks size={17} /> Promises & next steps</span></div>
+        </div>}
         {active.map((c) => <LiveCard key={c.id} card={c} />)}
       </div>
-      {history.length > 0 && (
-        <details className="shrink-0 mt-2 text-xs text-slate-500">
-          <summary className="cursor-pointer">history ({history.length})</summary>
-          <div className="mt-1 space-y-1 max-h-24 overflow-y-auto">
-            {history.map((c) => <div key={c.id} className="opacity-60">{c.title}</div>)}
-          </div>
-        </details>
-      )}
+      {history.length > 0 && <details className="border-t border-slate-700 p-4 text-sm text-slate-400"><summary className="cursor-pointer">Previous suggestions ({history.length})</summary><div className="mt-3 space-y-2 max-h-32 overflow-y-auto">{history.map((c) => <p key={c.id}>{c.title}</p>)}</div></details>}
     </div>
   );
 }

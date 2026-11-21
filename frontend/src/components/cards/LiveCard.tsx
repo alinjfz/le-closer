@@ -1,3 +1,4 @@
+import { Pin, ThumbsUp, X } from "lucide-react";
 import type { Card } from "../../store/callStore";
 import { useCallStore } from "../../store/callStore";
 import { api } from "../../lib/api";
@@ -31,16 +32,16 @@ export default function LiveCard({ card }: { card: Card }) {
       <div className="flex items-center gap-2 mb-1">
         <span>{style.icon}</span>
         <span className="font-medium text-sm flex-1">{card.title}</span>
-        <span className="text-[10px] text-slate-500">{Math.round(card.confidence * 100)}%</span>
+        <span className="text-xs text-slate-400" title="Model confidence">{Math.round(card.confidence * 100)}%</span>
       </div>
       <p className="text-sm text-slate-300 whitespace-pre-wrap">{card.body}</p>
       {card.sources.length > 0 && (
-        <p className="text-[10px] text-slate-500 mt-1">sources: {card.sources.join(" · ")}</p>
+        <p className="text-xs text-slate-400 mt-1">sources: {card.sources.join(" · ")}</p>
       )}
-      <div className="flex gap-2 mt-2 text-xs">
-        <button onClick={() => act("useful")} className="text-slate-400 hover:text-green-400">👍</button>
-        <button onClick={() => act("dismiss")} className="text-slate-400 hover:text-red-400">✕</button>
-        <button onClick={() => act("pin")} className="text-slate-400 hover:text-accent">📌</button>
+      <div className="flex flex-wrap gap-4 mt-4 pt-3 border-t border-slate-700 text-xs">
+        <button onClick={() => act("useful")} className="text-slate-400 hover:text-green-400 inline-flex gap-1.5 items-center"><ThumbsUp size={14} /> Useful</button>
+        <button onClick={() => act("dismiss")} className="text-slate-400 hover:text-red-400 inline-flex gap-1.5 items-center"><X size={14} /> Dismiss</button>
+        <button onClick={() => act("pin")} className="text-slate-400 hover:text-accent inline-flex gap-1.5 items-center"><Pin size={14} /> Pin</button>
         {card.kind === "integration" && card.meta?.prototype_available && (
           <button onClick={prototype} className="ml-auto text-accent hover:underline">Prototype ▶</button>
         )}
