@@ -19,3 +19,9 @@ tradeables:
   - case study / reference
   - faster signature
   - pilot phase first
+
+# IoT scale-based quotes — sensor volume tiers (mapped by the numbers agent)
+scale_tiers:
+  - { min_sensors: 2000, label: "Enterprise (2,000+ sensors)", price_per_sensor_month: 1.80 }
+  - { min_sensors: 500,  label: "Plant (500-1,999 sensors)",   price_per_sensor_month: 2.40 }
+  - { min_sensors: 0,    label: "Pilot (<500 sensors)",        price_per_sensor_month: 3.00 }

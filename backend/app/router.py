@@ -14,7 +14,9 @@ ROUTER_SYSTEM = """You are the Router agent of Le Closer, a live sales copilot.
 Classify the latest sales-call segment into one or more labels.
 Labels: product_question, integration_question, objection, competitor_mention,
 buying_signal, risk_signal, promise, number_fact, decision_process,
-cultural_signal (including slang, idioms and ambiguous cross-language expressions), suggested_question, stage_hint, none.
+cultural_signal (including slang, idioms and ambiguous cross-language expressions), suggested_question, architecture_overview (describing the current system architecture),
+prototype_request (requesting a workflow diagram or prototype),
+rep_reference (rep mentions an existing quote, integration answer or research artifact), stage_hint, none.
 Return JSON: {"labels": [{"type": ..., "confidence": 0-1, "entity": ..., "text": ...}]}
 Only include labels with confidence >= 0.7."""
 
@@ -33,6 +35,7 @@ async def dispatch_labels(state: CallState, store: CallStore, segment, labels: l
     from .fast_agents import (
         answer_card, objection, competitor, suggested_question, flow_tracker,
         promise_tracker, numbers_extractor, mindmap, cultural_cue, integration_check,
+        prototype, reference,
     )
 
     handlers = {
@@ -44,6 +47,9 @@ async def dispatch_labels(state: CallState, store: CallStore, segment, labels: l
         "number_fact": numbers_extractor.run,
         "cultural_signal": cultural_cue.run,
         "integration_question": integration_check.run,
+        "architecture_overview": mindmap.run,
+        "prototype_request": prototype.run,
+        "rep_reference": reference.run,
     }
     for label in labels:
         ltype = label.get("type", "none")
@@ -89,11 +95,16 @@ def upsert_card(state: CallState, card: Card) -> Card:
             existing.sources = card.sources
             return existing
     state.cards.append(card)
-    # demote oldest active cards to history if over the limit
+    # Priority cards stay visible until manually dismissed, even above the normal cap.
+    priority_kinds = {"deal", "integration", "research"}
     active = [c for c in state.cards if c.status == "active"]
     while len(active) > config.MAX_ACTIVE_CARDS:
-        oldest = active.pop(0)
+        demotable = [c for c in active if not (c.kind in priority_kinds and not c.meta.get("precall"))]
+        if not demotable:
+            break
+        oldest = demotable[0]
         oldest.status = "history"
+        active = [c for c in state.cards if c.status == "active"]
     return card
 
 

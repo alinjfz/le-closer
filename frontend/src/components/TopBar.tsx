@@ -59,7 +59,7 @@ export default function TopBar({ onEndCall }: { onEndCall: () => void }) {
       {n && !n.within_guardrails && <span className="text-sm text-danger">Outside pricing guardrails</span>}
       {call.demo && !call.ended && <button className="primary-button" disabled={starting || call.demo_status === "playing"} onClick={async () => {
         setStarting(true); setError("");
-        const result = await api(`/calls/${call.call_id}/demo/play`, "POST", { delay: 2.5 });
+        const result = await api(`/calls/${call.call_id}/demo/play`, "POST", { delay: 0.8 });
         if (result.error) setError(result.error);
         else useCallStore.getState().applyEvent("demo.status", "playing");
         setStarting(false);

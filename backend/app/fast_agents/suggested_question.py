@@ -18,8 +18,17 @@ async def run(state, store, segment, label) -> None:
     title = "Ask next"
     if gaps:
         title = f"Ask next ({gaps[0]})"
+    if not q and state.demo:
+        q = {
+            "budget": "What budget range has been approved for this — and is it annual or multi-year?",
+            "authority": "Besides you, who signs off — the Lenkungsausschuss, or also the CFO?",
+            "need": "Which sensor data matters most for your machines — vibration, temperature, or all of it?",
+            "timeline": "What does the timeline look like — when does the steering committee meet next?",
+        }.get(gaps[0] if gaps else "", "Who else is involved in the decision?")
+    if not q:
+        q = "Who else is involved in the decision?"
     await add_card(state, store, Card(
         id=new_id("card"), kind="suggested_question",
-        title=title, body=q or "Who else is involved in the decision?",
+        title=title, body=q,
         confidence=0.85, segment_id=segment.id,
     ))

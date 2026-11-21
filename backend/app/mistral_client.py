@@ -101,11 +101,14 @@ _INTEGRATION_RE = re.compile(
     r"\b(sap|s/4hana|salesforce|hubspot|workday|slack|teams|microsoft|oracle|netsuite|shopify)\b",
     re.IGNORECASE,
 )
-_OBJ_RE = re.compile(r"\b(too expensive|price|cost|budget concern|no budget|not now|maybe later|competitor is cheaper)\b", re.IGNORECASE)
-_COMP_RE = re.compile(r"\b(competitor|alternative|instead of|other tools?|openai|anthropic|google|copilot)\b", re.IGNORECASE)
+_OBJ_RE = re.compile(r"\b(too expensive|pric(e|ing)|cost|budget concern|no budget|not now|maybe later|competitor is cheaper)\b", re.IGNORECASE)
+_COMP_RE = re.compile(r"\b(competitor|alternative|instead of|other tools?|openai|anthropic|google)\b", re.IGNORECASE)
 _PROMISE_RE = re.compile(r"\b(i'?ll send|i will send|i'll get you|i will get you|i'll share|i will share|send you the)\b", re.IGNORECASE)
-_NUM_RE = re.compile(r"\b(\d[\d,]*)\s*(users?|seats?|employees|people)\b|\b(\d+(?:\.\d+)?)\s?%|\b(budget of|budget is)\s*€?\s?(\d[\d,]*)", re.IGNORECASE)
-_CULTURAL_RE = re.compile(r"\b(gdpr|data protection|hosting|works council|betriebsrat|align internally|not possible|security)\b", re.IGNORECASE)
+_NUM_RE = re.compile(r"\b(\d[\d,]*)\s*(users?|seats?|employees|people|operators?|sensors?|devices?|gateways?|plants?|sites?)\b|\b(\d+(?:\.\d+)?)\s?%|\b(budget of|budget is)\s*€?\s?(\d[\d,]*)", re.IGNORECASE)
+_REF_RE = re.compile(r"\b(quote|whitepaper|pen-test|integration|sap|diagram|workflow)\b", re.IGNORECASE)
+_CULTURAL_RE = re.compile(r"\b(gdpr|data protection|hosting|works council|betriebsrat|lenkungsausschuss|align internally|not possible)\b", re.IGNORECASE)
+_ARCH_RE = re.compile(r"\b(architecture|mqtt|gateway|on-prem|nightly batch|current (setup|process|landscape)|how do (the )?sensors)\b", re.IGNORECASE)
+_PROTO_RE = re.compile(r"\b(diagram|workflow (diagram|map|graph)|visualis?e|visualize|draw (that|it|this)|prototype)\b", re.IGNORECASE)
 _QUESTION_RE = re.compile(r"\?\s*$|\b(do you|does it|can you|how does|what about|is it|are you)\b", re.IGNORECASE)
 
 
@@ -114,6 +117,10 @@ def _mock_router(user: str) -> dict[str, Any]:
     # Only classify the LATEST SEGMENT line, not the whole rolling context
     latest = user.rsplit("LATEST SEGMENT", 1)[-1]
     text = latest
+    spk = re.search(r"LATEST SEGMENT \((\w+)\)", user)
+    speaker = spk.group(1) if spk else ""
+    if speaker == "rep" and _REF_RE.search(text):
+        labels.append({"type": "rep_reference", "confidence": 0.9, "entity": _REF_RE.search(text).group(1), "text": text[-160:]})
     if _INTEGRATION_RE.search(text):
         m = _INTEGRATION_RE.search(text)
         labels.append({"type": "integration_question", "confidence": 0.93, "entity": m.group(1), "text": text[-160:]})
@@ -130,7 +137,11 @@ def _mock_router(user: str) -> dict[str, Any]:
             labels.append({"type": "number_fact", "confidence": 0.88, "entity": "number", "value": val.replace(",", ""), "text": text[-160:]})
     if _CULTURAL_RE.search(text):
         labels.append({"type": "cultural_signal", "confidence": 0.82, "entity": _CULTURAL_RE.search(text).group(1), "text": text[-160:]})
-    if _QUESTION_RE.search(text) and not labels:
+    if _ARCH_RE.search(text):
+        labels.append({"type": "architecture_overview", "confidence": 0.9, "entity": _ARCH_RE.search(text).group(1), "text": text[-160:]})
+    if _PROTO_RE.search(text):
+        labels.append({"type": "prototype_request", "confidence": 0.88, "entity": _PROTO_RE.search(text).group(1), "text": text[-160:]})
+    if _QUESTION_RE.search(text) and not labels and speaker != "rep":
         labels.append({"type": "product_question", "confidence": 0.75, "entity": "question", "text": text[-160:]})
     if not labels:
         labels.append({"type": "none", "confidence": 0.6, "entity": "", "text": text[-160:]})
@@ -138,4 +149,5 @@ def _mock_router(user: str) -> dict[str, Any]:
 
 
 def _mock_text(user: str) -> str:
-    return "Mock response (no MISTRAL_API_KEY set). The pipeline is running end-to-end."
+    # No API key: return empty so every agent falls back to its hard-coded demo content.
+    return ""

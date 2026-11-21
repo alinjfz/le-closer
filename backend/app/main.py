@@ -231,7 +231,7 @@ async def demo_play(call_id: str, body: dict | None = None):
     if state.demo_status == "playing":
         return {"ok": True, "status": "playing"}
     script_path = Path(__file__).parent.parent / "demo" / "script.json"
-    raw = json.loads(script_path.read_text()) if script_path.exists() else []
+    raw = json.loads(script_path.read_text(encoding="utf-8")) if script_path.exists() else []
     lines = raw.get("lines", raw) if isinstance(raw, dict) else raw
     if not lines:
         lines = [
@@ -241,7 +241,7 @@ async def demo_play(call_id: str, body: dict | None = None):
     ]
     state.demo_status = "playing"
     await store.emit(call_id, "demo.status", "playing")
-    store.spawn(call_id, _play_script(state, lines, body.get("delay", 2.0) if body else 2.0))
+    store.spawn(call_id, _play_script(state, lines, body.get("delay", 0.8) if body else 0.8))
     return {"ok": True, "lines": len(lines)}
 
 

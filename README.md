@@ -130,7 +130,7 @@ npm install
 npm run dev                  # http://localhost:5173
 ```
 
-Open the UI → enter client (default: **Müller Logistik GmbH**, Dr. Anna Weber) → enable
+Open the UI → enter client (default: **NordWerk Maschinenbau AG**, Dr. Anna Weber) → enable
 **demo mode** → **Start demo call** → **Start** in the navigation bar.
 
 No API key? Everything still runs end-to-end in mock mode (deterministic router,
@@ -269,3 +269,13 @@ python3 -m unittest test_live_assistant test_live_meet test_mistral_responses -v
 ```
 
 Copilot cards render Markdown (headings, emphasis, lists, code, links and tables). Long answers can be expanded. Provider thinking/tool chunks are filtered before text reaches cards, notes or speech. Image results support both Mistral tool-file downloads and HTTPS URLs returned in tool execution results.
+
+## Integration behavior
+
+The IoT demo uses NordWerk Maschinenbau AG, the committed 19-turn sensor-security scenario, and 0.8-second playback pacing. The existing white/slate/blue UI, navbar Start control, rich text, mute button, transcript translations and live notes remain in place.
+
+Live calls use general multilingual cultural explanations plus a phrase glossary; the demo uses the German-specific persona. Workflow requests use Mistral generation on live calls. The demo also creates its fixed architecture diagram, and creates a Mistral variant when API access is configured; the Prototype tool continues to offer generated code and images. Mentioning an artifact records a reference without dismissing active or pinned cards. Dismissal remains manual.
+
+Sensor quotes separate annual and full-contract amounts: 1,200 sensors at €2.40/month cost €34,560/year, or €69,120 for two years. The volume-tier quote drives the deal total when sensor counts are present; operator counts are not priced as an additional seat-license deal. Scenario-specific offline copy is restricted to demo calls.
+
+Integration regressions: `cd backend && python3 -m unittest test_merge_choices -v`.
