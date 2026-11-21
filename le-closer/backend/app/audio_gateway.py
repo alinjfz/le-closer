@@ -52,9 +52,14 @@ class VoxtralSession:
             if text and not is_duplicate(self.state, text):
                 seg = make_segment(self.state, self.channel, text)
                 await self.store.emit(self.state.call_id, "transcript.segment", seg.model_dump())
-                from .router import route_segment, dispatch_labels
-                result = await route_segment(self.state, self.store, seg)
-                await dispatch_labels(self.state, self.store, seg, result.get("labels", []))
+                import asyncio
+
+                async def _dispatch():
+                    from .router import route_segment, dispatch_labels
+                    result = await route_segment(self.state, self.store, seg)
+                    await dispatch_labels(self.state, self.store, seg, result.get("labels", []))
+
+                asyncio.create_task(_dispatch())
 
 
 _sessions: dict[str, dict[str, VoxtralSession]] = {}

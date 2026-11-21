@@ -129,9 +129,17 @@ async def inject(call_id: str, body: dict):
         return {"ok": True, "duplicate": True}
     seg = make_segment(state, speaker, text)
     await store.emit(call_id, "transcript.segment", seg.model_dump())
-    result = await route_segment(state, store, seg)
-    await dispatch_labels(state, store, seg, result.get("labels", []))
+    # dispatch agents in the background so the transcript is instant and cards stream in
+    asyncio.create_task(_dispatch(state, seg))
     return {"ok": True, "segment_id": seg.id}
+
+
+async def _dispatch(state: CallState, seg) -> None:
+    try:
+        result = await route_segment(state, store, seg)
+        await dispatch_labels(state, store, seg, result.get("labels", []))
+    except Exception as e:
+        await store.log_activity(state, "pipeline", f"dispatch error: {e}", "error")
 
 
 @app.post("/calls/{call_id}/demo/play")
@@ -166,8 +174,7 @@ async def _play_script(state: CallState, lines: list[dict], delay: float) -> Non
             continue
         seg = make_segment(state, speaker, text)
         await store.emit(state.call_id, "transcript.segment", seg.model_dump())
-        result = await route_segment(state, store, seg)
-        await dispatch_labels(state, store, seg, result.get("labels", []))
+        await _dispatch(state, seg)
 
 
 @app.post("/calls/{call_id}/cards/{card_id}")

@@ -36,15 +36,20 @@ async def chat_json(model: str, system: str, user: str, temperature: float = 0.2
     client = get_client()
     if client is None:
         return _mock_router(user)
-    resp = client.chat.complete(
-        model=model,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        temperature=temperature,
-        response_format={"type": "json_object"},
-    )
+    import asyncio
+
+    def _call():
+        return client.chat.complete(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=temperature,
+            response_format={"type": "json_object"},
+        )
+
+    resp = await asyncio.to_thread(_call)  # sync SDK must not block the event loop
     content = resp.choices[0].message.content or "{}"
     try:
         return json.loads(content)
@@ -57,14 +62,19 @@ async def chat_text(model: str, system: str, user: str, temperature: float = 0.4
     client = get_client()
     if client is None:
         return _mock_text(user)
-    resp = client.chat.complete(
-        model=model,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        temperature=temperature,
-    )
+    import asyncio
+
+    def _call():
+        return client.chat.complete(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=temperature,
+        )
+
+    resp = await asyncio.to_thread(_call)
     return resp.choices[0].message.content or ""
 
 
