@@ -13,10 +13,10 @@ export interface ActivityEntry { agent: string; message: string; status: string;
 export interface ClientProfile { company: string; country: string; people: any[]; cultural_briefing?: string; industry: string; }
 
 interface CallState {
-  call_id: string; mode: string; demo: boolean; demo_status?: "idle" | "playing" | "finished"; client: ClientProfile;
+  call_id: string; mode: string; demo: boolean; demo_status?: "idle" | "playing" | "finished"; demo_progress?: { current: number; total: number }; client: ClientProfile;
   segments: Segment[]; cards: Card[]; tasks: Task[]; flow: FlowState;
   facts: DealFacts; numbers: DealNumbers | null; mindmap_md: string;
-  prototypes: { id: string; title: string; html?: string; kind?: "code" | "image"; image_url?: string }[];
+  prototypes: { id: string; title: string; html?: string; kind?: "code" | "image" | "diagram"; image_url?: string }[];
   activity: ActivityEntry[]; notes: any; followup_draft: string | null;
   followup_status: string; ended: boolean;
   meet_url: string | null; bot_status: string; bot_detail: string; started_at: number;
@@ -97,6 +97,7 @@ export const useCallStore = create<Store>((set) => ({
       case "mindmap.update": return { call: { ...call, mindmap_md: payload } };
       case "prototype.ready": return { call: { ...call, prototypes: [...call.prototypes, payload] }, activeTab: "Prototype" };
       case "activity.log": return { call: { ...call, activity: [...call.activity.slice(-199), payload] } };
+      case "demo.progress": return { call: { ...call, demo_progress: payload } };
       case "demo.status": return { call: { ...call, demo_status: payload } };
       case "call.ended": return { call: { ...call, ended: true } };
       case "bot.status": return { call: { ...call, bot_status: payload.status, bot_detail: payload.detail } };

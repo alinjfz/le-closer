@@ -64,7 +64,8 @@ async def dispatch_labels(state: CallState, store: CallStore, segment, labels: l
                 await store.log_activity(state, f"agent:{ltype}", f"error: {e}", "error")
 
     # periodic flow + mindmap updates
-    if len(state.segments) % 3 == 0:
+    segment_number = next((index for index, item in enumerate(state.segments, 1) if item.id == segment.id), len(state.segments))
+    if segment_number % 3 == 0:
         await flow_tracker.run(state, store, segment, {})
         await mindmap.run(state, store, segment, {})
 
@@ -96,7 +97,7 @@ def upsert_card(state: CallState, card: Card) -> Card:
             return existing
     state.cards.append(card)
     # Priority cards stay visible until manually dismissed, even above the normal cap.
-    priority_kinds = {"deal", "integration", "research"}
+    priority_kinds = {"deal", "integration", "research", "prototype"}
     active = [c for c in state.cards if c.status == "active"]
     while len(active) > config.MAX_ACTIVE_CARDS:
         demotable = [c for c in active if not (c.kind in priority_kinds and not c.meta.get("precall"))]

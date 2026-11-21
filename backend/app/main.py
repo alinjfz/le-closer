@@ -231,14 +231,18 @@ async def demo_play(call_id: str, body: dict | None = None):
     if state.demo_status == "playing":
         return {"ok": True, "status": "playing"}
     script_path = Path(__file__).parent.parent / "demo" / "script.json"
-    raw = json.loads(script_path.read_text(encoding="utf-8")) if script_path.exists() else []
-    lines = raw.get("lines", raw) if isinstance(raw, dict) else raw
-    if not lines:
-        lines = [
-        {"speaker": "client", "text": "We run everything on SAP S/4HANA. Does your platform integrate with it?"},
-        {"speaker": "rep", "text": "I'll send you the security document this week."},
-        {"speaker": "client", "text": "We are about 300 users and would need at least 25% discount."},
-    ]
+    try:
+        raw = json.loads(script_path.read_text(encoding="utf-8"))
+        lines = raw.get("lines", []) if isinstance(raw, dict) else raw
+    except (OSError, ValueError):
+        raise HTTPException(503, "The complete demo script could not be loaded. Please restore backend/demo/script.json.")
+    if not isinstance(lines, list) or not lines or any(
+        not isinstance(line, dict) or line.get("speaker") not in ("rep", "client")
+        or not isinstance(line.get("text"), str) or not line["text"].strip() for line in lines
+    ):
+        raise HTTPException(503, "The demo script is empty or invalid.")
+    state.demo_progress = {"current": 0, "total": len(lines)}
+    await store.emit(call_id, "demo.progress", state.demo_progress)
     state.demo_status = "playing"
     await store.emit(call_id, "demo.status", "playing")
     store.spawn(call_id, _play_script(state, lines, body.get("delay", 0.8) if body else 0.8))
@@ -246,23 +250,40 @@ async def demo_play(call_id: str, body: dict | None = None):
 
 
 async def _play_script(state: CallState, lines: list[dict], delay: float) -> None:
+    # Emit every scripted turn on schedule. A single managed consumer preserves
+    # agent ordering without allowing slow provider calls to pause the transcript.
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def process_turns():
+        while True:
+            segment = await queue.get()
+            if segment is None or state.ended:
+                return
+            await _dispatch(state, segment)
+
+    worker = store.spawn(state.call_id, process_turns())
     try:
-        for line in lines:
+        state.demo_progress = {"current": 0, "total": len(lines)}
+        for index, line in enumerate(lines, 1):
             if state.ended:
                 break
             await asyncio.sleep(delay)
             if state.ended:
                 break
-            speaker = line.get("speaker", "client")
-            text = line.get("text", "")
-            if not text or is_duplicate(state, text):
-                continue
-            seg = make_segment(state, speaker, text)
+            seg = make_segment(state, line["speaker"], line["text"])
             await store.emit(state.call_id, "transcript.segment", seg.model_dump())
-            await _dispatch(state, seg)
+            state.demo_progress = {"current": index, "total": len(lines)}
+            await store.emit(state.call_id, "demo.progress", state.demo_progress)
+            queue.put_nowait(seg)
+        queue.put_nowait(None)
+        await worker
     finally:
+        if not worker.done():
+            worker.cancel()
+            await asyncio.gather(worker, return_exceptions=True)
         state.demo_status = "finished"
         await store.emit(state.call_id, "demo.status", "finished")
+
 
 @app.post("/calls/{call_id}/cards/{card_id}")
 async def card_action(call_id: str, card_id: str, body: dict):
@@ -302,7 +323,7 @@ async def task_action(call_id: str, task_id: str, body: dict):
 class PrototypeRequest(BaseModel):
     topic: str = Field(default="", max_length=2000)
     based_on_call: bool = False
-    kind: Literal["code", "image"] = "code"
+    kind: Literal["code", "image", "diagram"] = "code"
 
 
 class QuestionRequest(BaseModel):
@@ -326,16 +347,20 @@ def active_call(call_id):
 async def prototype(call_id: str, body: PrototypeRequest):
     from .live_assistant import generate_prototype
     state = active_call(call_id)
+    if any(job.get_name() == "prototype-generation" and not job.done() for job in store.jobs.get(call_id, set())):
+        raise HTTPException(409, "A prototype is already generating. Please wait for it to finish.")
+    if body.kind == "diagram" and not state.demo:
+        raise HTTPException(422, "The fixed workflow diagram is only available in demo mode.")
     topic = body.topic.strip()
     if body.based_on_call:
-        if body.kind != "image":
-            raise HTTPException(422, "Call-based generation requires image output")
         if not state.segments and not state.notes and not state.personal_notes.strip():
-            raise HTTPException(422, "Capture some conversation or add notes before generating an image from the call.")
-        topic = "Visualize the end product discussed in our call" + (f". Additional direction: {topic}" if topic else "")
+            raise HTTPException(422, "Capture some conversation or add notes before generating from the call.")
+        brief = "Visualize the end product discussed in our call" if body.kind == "image" else "Create a workflow diagram or prototype from our call"
+        topic = brief + (f". Additional direction: {topic}" if topic else "")
     elif not topic:
         raise HTTPException(422, "Describe what you want to generate")
-    store.spawn(call_id, generate_prototype(state, store, topic, body.kind))
+    job = store.spawn(call_id, generate_prototype(state, store, topic, body.kind))
+    job.set_name("prototype-generation")
     return {"ok": True, "status": "working"}
 
 

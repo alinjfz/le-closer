@@ -22,7 +22,7 @@ class Card(BaseModel):
     kind: Literal[
         "answer", "integration", "objection", "competitor",
         "suggested_question", "cultural", "gap", "research",
-        "negotiation", "deal",
+        "negotiation", "deal", "prototype",
     ]
     title: str
     body: str
@@ -107,6 +107,7 @@ class CallState(BaseModel):
     mode: Literal["sales", "brainstorm"] = "sales"
     demo: bool = False
     demo_status: Literal["idle", "playing", "finished"] = "idle"
+    demo_progress: dict[str, int] = Field(default_factory=lambda: {"current": 0, "total": 0})
     client: ClientProfile = Field(default_factory=ClientProfile)
     segments: list[Segment] = Field(default_factory=list)
     cards: list[Card] = Field(default_factory=list)

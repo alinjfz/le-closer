@@ -63,7 +63,7 @@ export default function TopBar({ onEndCall }: { onEndCall: () => void }) {
         if (result.error) setError(result.error);
         else useCallStore.getState().applyEvent("demo.status", "playing");
         setStarting(false);
-      }}>{starting || call.demo_status === "playing" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}{starting ? "Starting…" : call.demo_status === "playing" ? "Running…" : "Start"}</button>}
+      }}>{starting || call.demo_status === "playing" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}{starting ? "Starting…" : call.demo_status === "playing" ? call.demo_progress?.total ? `${call.demo_progress.current === call.demo_progress.total ? "Preparing results…" : "Playing…"} ${call.demo_progress.current}/${call.demo_progress.total}` : "Running…" : "Start"}</button>}
       <button onClick={call.ended ? onEndCall : end} disabled={ending} className={call.ended ? "secondary-button" : "call-end"}>{ending ? <Loader2 size={16} className="animate-spin" /> : !call.ended && <PhoneOff size={16} />}{call.ended ? "View call review" : ending ? "Ending call…" : "End & review"}</button>
       {error && <p role="alert" className="text-danger text-sm w-full">{error}</p>}
     </header>

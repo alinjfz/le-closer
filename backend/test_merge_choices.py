@@ -42,32 +42,50 @@ class MergeChoiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(chat.await_count, 1)
         self.assertIn('steering committee', self.demo.cards[-1].body)
 
-    async def test_live_workflow_requests_use_only_mistral_pipeline(self):
-        seg = make_segment(self.live, 'rep', 'Draw our architecture.')
-        with patch('app.live_assistant.generate_prototype', new_callable=AsyncMock) as generate:
-            await prototype.run(self.live, self.store, seg, {})
-        generate.assert_awaited_once_with(self.live, self.store, 'Generated workflow diagram from the call', 'code')
-        self.assertEqual(self.live.prototypes, [])
+    async def test_workflow_mentions_only_offer_generate_in_live_and_demo(self):
+        for state in (self.live, self.demo):
+            seg = make_segment(state, 'rep', 'Draw our architecture.')
+            with patch('app.live_assistant.generate_prototype', new_callable=AsyncMock) as generate:
+                await prototype.run(state, self.store, seg, {})
+                await prototype.run(state, self.store, seg, {})
+            generate.assert_not_awaited()
+            self.assertEqual(state.prototypes, [])
+            self.assertEqual(len(state.cards), 1)
+            self.assertEqual(state.cards[0].kind, 'prototype')
+            self.assertTrue(state.cards[0].meta['prototype_available'])
 
-    async def test_demo_can_produce_both_workflows_without_duplicates(self):
+    async def test_demo_variants_only_generate_after_explicit_requests(self):
+        import asyncio
         make_segment(self.demo, 'client', 'Our sensors use MQTT through a gateway to SAP.')
-        seg = make_segment(self.demo, 'rep', 'We have the workflow diagram ready.')
-        async def generated(state, store, topic, kind):
-            state.prototypes.append({'id': 'generated', 'title': topic, 'kind': kind, 'html': '<h1>Generated</h1>'})
-        with patch('app.mistral_client.has_api_key', return_value=True), patch('app.live_assistant.generate_prototype', side_effect=generated) as generate:
-            await prototype.run(self.demo, self.store, seg, {})
-            await prototype.run(self.demo, self.store, seg, {})
+        with patch.object(main, 'store', self.store), patch('app.live_assistant.has_api_key', return_value=True), patch('app.live_assistant.chat_text', new_callable=AsyncMock, return_value='<html><body>Generated workflow</body></html>') as chat:
+            self.assertEqual(self.demo.prototypes, [])
+            for kind in ('diagram', 'code'):
+                await main.prototype(self.demo.call_id, main.PrototypeRequest(kind=kind, based_on_call=True))
+                await asyncio.gather(*list(self.store.jobs[self.demo.call_id]))
         self.assertEqual(len(self.demo.prototypes), 2)
-        self.assertIn('Workflow diagram:', self.demo.prototypes[0]['title'])
         self.assertIn('SAP', self.demo.prototypes[0]['html'])
-        self.assertEqual(generate.await_count, 1)
+        self.assertIn('Generated workflow', self.demo.prototypes[1]['html'])
+        self.assertEqual(chat.await_count, 1)
 
-    async def test_offline_demo_keeps_template_available(self):
-        seg = make_segment(self.demo, 'rep', 'Draw this workflow.')
-        with patch('app.mistral_client.has_api_key', return_value=False), patch('app.live_assistant.generate_prototype', new_callable=AsyncMock) as generate:
-            await prototype.run(self.demo, self.store, seg, {})
-        self.assertEqual(len(self.demo.prototypes), 1)
-        generate.assert_not_awaited()
+    async def test_duplicate_generate_requests_are_blocked(self):
+        import asyncio
+        from fastapi import HTTPException
+        release = asyncio.Event()
+        entered = asyncio.Event()
+        async def generate(*args):
+            entered.set()
+            await release.wait()
+        with patch.object(main, 'store', self.store), patch('app.live_assistant.generate_prototype', side_effect=generate) as generate_mock:
+            await main.prototype(self.live.call_id, main.PrototypeRequest(topic='A workflow', kind='code'))
+            await asyncio.wait_for(entered.wait(), 1)
+            try:
+                with self.assertRaises(HTTPException) as error:
+                    await main.prototype(self.live.call_id, main.PrototypeRequest(topic='A workflow', kind='code'))
+                self.assertEqual(error.exception.status_code, 409)
+                self.assertEqual(generate_mock.await_count, 1)
+            finally:
+                release.set()
+                await asyncio.gather(*list(self.store.jobs[self.live.call_id]))
 
     async def test_references_preserve_active_and_pinned_cards_in_both_modes(self):
         for state in (self.live, self.demo):
@@ -119,7 +137,8 @@ class MergeChoiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.demo.facts.sensors, 1200)
         self.assertEqual(self.demo.numbers.quote_annual, 34560)
         self.assertEqual(self.demo.numbers.quote_contract_total, 69120)
-        self.assertTrue(self.demo.prototypes)
+        self.assertEqual(self.demo.prototypes, [])
+        self.assertTrue(any(card.kind == "prototype" and card.status == "active" and card.meta.get("prototype_available") for card in self.demo.cards))
         self.assertTrue(any(c.kind == 'cultural' and 'steering committee' in c.body for c in self.demo.cards))
         self.assertTrue(any(c.kind == 'deal' and '34,560' in c.body and c.status == 'active' for c in self.demo.cards))
         self.assertIn('34,560', self.demo.notes['markdown'])

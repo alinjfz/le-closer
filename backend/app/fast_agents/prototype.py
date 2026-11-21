@@ -1,6 +1,4 @@
-"""Prototype agent — rep asks for a live workflow diagram of the client's architecture
-(prototype_request label). Builds a self-contained sandboxed HTML/SVG card and emits
-prototype.ready, same shape as the POST /calls/{id}/prototype endpoint (F10, D9)."""
+"""Prototype request cards and the manually generated demo workflow template."""
 
 from __future__ import annotations
 
@@ -63,28 +61,13 @@ def _workflow_html(topic: str, systems: list[str]) -> str:
 
 
 async def run(state, store, segment, label) -> None:
-    from ..live_assistant import generate_prototype
-    from ..mistral_client import has_api_key
-    from ..segments import rolling_context
+    """Surface the request; generation is only started by a UI button."""
+    from ..models import Card
+    from ..router import add_card
 
-    if state.demo:
-        topic = "client architecture"
-        title = f"Workflow diagram: {topic}"
-        if not any(pr.get("title") == title for pr in state.prototypes):
-            systems = _detect_systems(rolling_context(state, 10000))
-            proto = {
-                "id": new_id("proto"), "title": title, "kind": "code",
-                "html": _workflow_html(topic, systems),
-            }
-            state.prototypes.append(proto)
-            await store.emit(state.call_id, "prototype.ready", proto)
-            await store.log_activity(state, "PrototypeAgent", "demo workflow diagram ready", "done")
-        if not has_api_key():
-            return  # The Mistral generation option remains available when a key is configured.
-
-    topic = "Generated workflow diagram from the call"
-    if any(pr.get("title") == topic for pr in state.prototypes):
-        return
-    if any(task.title == f"Prototype: {topic}" and task.status == "working" for task in state.tasks):
-        return
-    await generate_prototype(state, store, topic, "code")
+    await add_card(state, store, Card(
+        id=new_id("card"), kind="prototype", title="Workflow diagram requested",
+        body="Generate a workflow diagram from this call when you’re ready.",
+        confidence=label.get("confidence", 0.88), segment_id=segment.id,
+        meta={"prototype_available": True, "prototype_topic": "Workflow diagram from the call"},
+    ))
