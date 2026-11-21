@@ -5,8 +5,11 @@ import asyncio
 import json
 import time
 
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .models import CallState
 from .segments import make_segment, is_duplicate
@@ -82,6 +85,15 @@ async def bot_status(call_id: str, body: dict):
     state.bot_detail = body.get("detail", "")
     await store.emit(call_id, "bot.status", {"status": state.bot_status, "detail": state.bot_detail})
     return {"ok": True}
+
+
+@app.get("/calls/latest")
+async def get_latest_call():
+    """Most recently created call — lets the UI resume the bot's call."""
+    if not store.calls:
+        return {"error": "none"}
+    state = max(store.calls.values(), key=lambda s: s.started_at)
+    return state.model_dump()
 
 
 @app.get("/calls/{call_id}")
@@ -279,3 +291,9 @@ async def ws_events(websocket: WebSocket, call_id: str):
 @app.get("/health")
 async def health():
     return {"ok": True, "calls": len(store.calls)}
+
+
+# Serve the built frontend (Docker image) — mounted last so API/WS routes win.
+_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if _DIST.exists():
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="frontend")

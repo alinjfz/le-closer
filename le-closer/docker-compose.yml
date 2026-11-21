@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8003:8003"
+    env_file: .env            # MISTRAL_API_KEY, GOOGLE_APPLICATION_CREDENTIALS, …
+    environment:
+      - LECLOSER_BACKEND=http://app:8003
+    restart: unless-stopped
+
+  # Demo bot: plays the realistic scripted call into the dashboard.
+  # For a real meeting: command: python -m bot.run --meet-url https://meet.google.com/xxx-yyyy-zzz --create-call
+  bot:
+    build: .
+    profiles: ["demo"]        # only starts with: docker compose --profile demo up
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      - LECLOSER_BACKEND=http://app:8003
+    command: python -m bot.run --demo --create-call --delay 3

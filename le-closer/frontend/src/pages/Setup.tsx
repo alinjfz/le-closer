@@ -39,6 +39,18 @@ export default function Setup({ onStart }: { onStart: () => void }) {
     setLoading(false);
   };
 
+  const resumeLatest = async () => {
+    setLoading(true);
+    const state = await api("/calls/latest");
+    if (state.call_id) {
+      setCall(state);
+      onStart();
+    } else {
+      setError("No existing call yet — start a new one.");
+    }
+    setLoading(false);
+  };
+
   const createSpace = async () => {
     setLoading(true);
     setError("");
@@ -105,6 +117,10 @@ export default function Setup({ onStart }: { onStart: () => void }) {
             Then run: <code className="bg-ink px-1 rounded">python -m bot.run --meet-url {meetUrl || "…"} --call-id &lt;call_id&gt;</code>
           </p>
         )}
+        <button onClick={resumeLatest} disabled={loading}
+          className="w-full mt-2 border border-slate-600 hover:border-accent text-sm rounded-lg py-2 disabled:opacity-50">
+          Resume latest call ↻
+        </button>
       </div>
     </div>
   );

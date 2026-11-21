@@ -17,14 +17,42 @@ call, crunches the deal numbers, and handles the follow-up after the call.
 
 ## Quick start
 
+### 🐳 Docker (recommended — one image, everything included)
+
+```bash
+cd le-closer
+cp .env.example .env         # add MISTRAL_API_KEY / GOOGLE_APPLICATION_CREDENTIALS (optional)
+docker build -t le-closer .  # ~1GB; code changes rebuild in ~2s (deps are cached layers)
+docker run -p 8003:8003 le-closer
+# open http://localhost:8003 — dashboard + API + WS on one port
+
+# scripted demo call straight into the dashboard:
+docker run --rm le-closer python -m bot.run --demo --create-call
+# then in the UI: "Resume latest call ↻"
+
+# real meeting:
+docker run --rm -e LECLOSER_BACKEND=http://host.docker.internal:8003 \
+  le-closer python -m bot.run --meet-url https://meet.google.com/xxx-yyyy-zzz --create-call
+
+# or with compose (app + demo bot):
+docker compose --profile demo up --build
+```
+
+The image is multi-stage: `node:20-alpine` builds the frontend, `python:3.12-slim`
+runs FastAPI which also serves the built SPA (no nginx), and includes the
+Playwright chromium-headless-shell for the Meet bot. Heavy layers (apt libs,
+pip, browser) are ordered before the code `COPY`, so rebuilds after code edits
+are seconds.
+
+### Manual (dev)
+
 ```bash
 # Backend
 cd backend
-pip install -e .
-cp ../.env.example ../.env   # add MISTRAL_API_KEY (optional: mock mode works without)
+pip install -r ../requirements.txt
 uvicorn app.main:app --port 8003
 
-# Frontend
+# Frontend (dev server with proxy to :8003)
 cd frontend
 npm install
 npm run dev                  # http://localhost:5173
