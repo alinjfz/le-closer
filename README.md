@@ -245,3 +245,8 @@ Live transcription needs `MISTRAL_API_KEY` and an available realtime model
 `.env`, restart the backend and refresh the dashboard.
 
 Regression checks: `cd backend && python3 -m unittest test_live_meet -v`.
+
+## Contributors
+
+- [@n-bhar](https://github.com/n-bhar)
+- [@chrismatton](https://github.com/chrismatton)
