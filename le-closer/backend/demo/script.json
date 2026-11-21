@@ -1,11 +1,23 @@
-[
-  {"speaker": "rep", "text": "Thanks for joining, Dr. Weber. May I record this call for our notes?"},
-  {"speaker": "client", "text": "Yes, that's fine. We run everything on SAP S/4HANA. Does your platform integrate with it?"},
-  {"speaker": "rep", "text": "Great question — let me check that live. I'll also send you the security document this week."},
-  {"speaker": "client", "text": "We have detailed questions on GDPR and data hosting. Where is your data hosted?"},
-  {"speaker": "client", "text": "We are about 300 users and would need at least 25% discount."},
-  {"speaker": "rep", "text": "This is going to be amazing and game-changing for your team!"},
-  {"speaker": "client", "text": "I will need to align with our works council before any decision."},
-  {"speaker": "client", "text": "That is not possible for us with a US-only hosting option."},
-  {"speaker": "client", "text": "Who else is involved in the decision on your side? What is the budget for this?"}
-]
+{
+  "_note": "FICTIONAL demo script for offline/demo mode. No real people or calls. The scripted client explicitly consents to transcription, mirroring the consent gate the real bot enforces.",
+  "lines": [
+    {"speaker": "rep", "text": "Guten Tag, Dr. Weber — thank you for taking the time today. Before we start: with your permission I'll have our assistant transcribe this call so we both get accurate notes. Is that OK?"},
+    {"speaker": "client", "text": "Yes, that is fine. Please go ahead."},
+    {"speaker": "rep", "text": "Thank you. I sent you the agenda — five topics: your current process, SAP integration, security and hosting, pricing, and next steps."},
+    {"speaker": "client", "text": "We run our entire operation on SAP S/4HANA — customs declarations, shipment tracking, invoicing. Does your platform integrate with it?"},
+    {"speaker": "rep", "text": "Good question — I am checking that live right now. And on security: I will send you our security document and the data processing agreement this week."},
+    {"speaker": "client", "text": "We will need to review GDPR compliance and where the data is hosted in detail. Do you host in the EU?"},
+    {"speaker": "rep", "text": "Yes — Paris region, EU-only residency, SOC 2 Type II. The security document covers all of that."},
+    {"speaker": "client", "text": "Our current process is very manual. Customs paperwork is checked by hand by four people, and errors cost us real money — last quarter we had two misfiled declarations."},
+    {"speaker": "rep", "text": "That is exactly the kind of pain we automate. Who else is involved in the decision on your side?"},
+    {"speaker": "client", "text": "I will need to align with our works council, and our CFO signs off on anything above fifty thousand euros."},
+    {"speaker": "client", "text": "Roughly speaking, we are about 300 users across three sites, and our budget for this is around 90,000 euros per year."},
+    {"speaker": "client", "text": "On pricing: list price aside, we would need at least 25% discount to make this work."},
+    {"speaker": "rep", "text": "I understand. Let me be direct with you: our floor for 300 seats is 12%, and I can offer that if we sign a two-year contract today."},
+    {"speaker": "client", "text": "A two-year contract is not possible for us right now — budget is approved annually. What can you do at 15%?"},
+    {"speaker": "client", "text": "One more thing — how long would implementation take? We need this running before Q3."},
+    {"speaker": "rep", "text": "Typical onboarding is four to six weeks including the SAP connector. I can put that in writing as a pilot plan with milestones."},
+    {"speaker": "client", "text": "That sounds reasonable. Send me the pilot plan, the security document, and a written proposal with the 12% two-year option. We will decide internally within two weeks."},
+    {"speaker": "rep", "text": "Perfect — I'll send all three today, and I'll follow up next week if I don't hear back. Thank you, Dr. Weber."}
+  ]
+}

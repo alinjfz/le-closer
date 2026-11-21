@@ -92,5 +92,10 @@ def new_id(prefix: str) -> str:
 
 
 async def add_task(state: CallState, store: CallStore, task: Task) -> None:
+    # dedupe: same title already tracked → just refresh it
+    for existing in state.tasks:
+        if existing.title == task.title and existing.status in ("queued", "working"):
+            await store.emit(state.call_id, "task.upsert", existing.model_dump())
+            return
     state.tasks.append(task)
     await store.emit(state.call_id, "task.upsert", task.model_dump())

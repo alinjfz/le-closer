@@ -31,11 +31,57 @@ async def create_call(body: dict):
         client=body.get("client"),
         mode=body.get("mode", "sales"),
         demo=body.get("demo", False),
+        meet_url=body.get("meet_url"),
     )
     # pre-call research + cultural briefing
+    from .workflows import research
+    asyncio.create_task(research.research_brief(state, store))
     asyncio.create_task(post_call.cultural_briefing(state, store))
     await store.log_activity(state, "LeCloser", f"call created ({state.client.company})", "done")
     return {"call_id": state.call_id, "state": state.model_dump()}
+
+
+@app.post("/calls/{call_id}/meet")
+async def attach_meet(call_id: str, body: dict):
+    """Attach a Google Meet link to a call (bot will join it)."""
+    state = store.get(call_id)
+    if not state:
+        return {"error": "not found"}
+    state.meet_url = body.get("meet_url")
+    await store.emit(call_id, "meet.update", {"meet_url": state.meet_url})
+    return {"ok": True, "meet_url": state.meet_url}
+
+
+@app.post("/calls/{call_id}/meet/create")
+async def create_meet_space(call_id: str):
+    """Create a fresh Google Meet space via Meet API v2 and attach it."""
+    state = store.get(call_id)
+    if not state:
+        return {"error": "not found"}
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    try:
+        from bot.meet_api import create_space
+        space = create_space()
+        state.meet_url = space.meeting_uri
+        await store.emit(call_id, "meet.update", {"meet_url": space.meeting_uri,
+                                                   "meeting_code": space.meeting_code})
+        return {"ok": True, "meet_url": space.meeting_uri, "meeting_code": space.meeting_code}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/calls/{call_id}/bot/status")
+async def bot_status(call_id: str, body: dict):
+    """The Meet bot reports its lifecycle status here."""
+    state = store.get(call_id)
+    if not state:
+        return {"error": "not found"}
+    state.bot_status = body.get("status", state.bot_status)
+    state.bot_detail = body.get("detail", "")
+    await store.emit(call_id, "bot.status", {"status": state.bot_status, "detail": state.bot_detail})
+    return {"ok": True}
 
 
 @app.get("/calls/{call_id}")
@@ -85,7 +131,10 @@ async def demo_play(call_id: str, body: dict | None = None):
     if not state:
         return {"error": "not found"}
     script_path = Path(__file__).parent.parent / "demo" / "script.json"
-    lines = json.loads(script_path.read_text()) if script_path.exists() else [
+    raw = json.loads(script_path.read_text()) if script_path.exists() else []
+    lines = raw.get("lines", raw) if isinstance(raw, dict) else raw
+    if not lines:
+        lines = [
         {"speaker": "client", "text": "We run everything on SAP S/4HANA. Does your platform integrate with it?"},
         {"speaker": "rep", "text": "I'll send you the security document this week."},
         {"speaker": "client", "text": "We are about 300 users and would need at least 25% discount."},

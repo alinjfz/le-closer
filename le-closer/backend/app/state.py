@@ -57,12 +57,14 @@ class CallStore:
         client: dict | None = None,
         mode: str = "sales",
         demo: bool = False,
+        meet_url: str | None = None,
     ) -> CallState:
         call_id = f"call_{uuid.uuid4().hex[:12]}"
         from .models import ClientProfile
 
         profile = ClientProfile(**(client or {}))
-        state = CallState(call_id=call_id, mode=mode, demo=demo, client=profile)
+        state = CallState(call_id=call_id, mode=mode, demo=demo, client=profile,
+                          meet_url=meet_url, started_at=time.time())
         self.calls[call_id] = state
         return state
 

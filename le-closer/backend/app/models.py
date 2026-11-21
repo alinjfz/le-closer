@@ -104,3 +104,7 @@ class CallState(BaseModel):
     followup_draft: Optional[str] = None
     followup_status: Literal["none", "awaiting_approval", "approved", "rejected", "sent"] = "none"
     ended: bool = False
+    meet_url: Optional[str] = None
+    bot_status: str = "offline"   # offline | launching | joining | requested | in_call | capturing | waiting | left
+    bot_detail: str = ""
+    started_at: float = 0.0

@@ -15,7 +15,7 @@ def _extract(state, text: str) -> None:
     m = re.search(r"(\d+(?:\.\d+)?)\s*%", t)
     if m and ("discount" in t or "at least" in t or "need" in t):
         f.requested_discount_pct = float(m.group(1))
-    m = re.search(r"(?:budget(?: of| is)?|budget)\D{0,10}[€$]?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|thousand)?", t)
+    m = re.search(r"budget\D{0,40}?[€$]?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|thousand)?", t)
     if m:
         val = float(m.group(1).replace(",", ""))
         if m.group(2):

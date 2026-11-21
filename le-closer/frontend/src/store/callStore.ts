@@ -19,6 +19,7 @@ interface CallState {
   prototypes: { id: string; title: string; html: string }[];
   activity: ActivityEntry[]; notes: any; followup_draft: string | null;
   followup_status: string; ended: boolean;
+  meet_url: string | null; bot_status: string; bot_detail: string; started_at: number;
 }
 
 interface Store {
@@ -39,6 +40,7 @@ const initialCall: CallState = {
   facts: { currency: "EUR" }, numbers: null, mindmap_md: "# Call",
   prototypes: [], activity: [], notes: null, followup_draft: null,
   followup_status: "none", ended: false,
+  meet_url: null, bot_status: "offline", bot_detail: "", started_at: 0,
 };
 
 export const useCallStore = create<Store>((set) => ({
@@ -76,6 +78,8 @@ export const useCallStore = create<Store>((set) => ({
       case "prototype.ready": return { call: { ...call, prototypes: [...call.prototypes, payload] } };
       case "activity.log": return { call: { ...call, activity: [...call.activity.slice(-199), payload] } };
       case "call.ended": return { call: { ...call, ended: true } };
+      case "bot.status": return { call: { ...call, bot_status: payload.status, bot_detail: payload.detail } };
+      case "meet.update": return { call: { ...call, meet_url: payload.meet_url } };
       case "notes.ready": return { call: { ...call, notes: payload } };
       case "followup.awaiting_approval": return { call: { ...call, followup_draft: payload, followup_status: call.followup_status === "sent" ? "sent" : "awaiting_approval" } };
       default: return s;

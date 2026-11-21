@@ -21,9 +21,13 @@ def has_api_key() -> bool:
 def get_client():
     global _client
     if _client is None and has_api_key():
-        from mistralai import Mistral
+        try:
+            from mistralai import Mistral
 
-        _client = Mistral(api_key=config.MISTRAL_API_KEY)
+            _client = Mistral(api_key=config.MISTRAL_API_KEY)
+        except ImportError:
+            # SDK not installed — fall back to mock mode
+            return None
     return _client
 
 

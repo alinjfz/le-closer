@@ -31,10 +31,46 @@ npm run dev                  # http://localhost:5173
 ```
 
 Open the UI → enter client (default: **Müller Logistik GmbH**, Dr. Anna Weber) → enable
-**demo mode** → **Start call** → ▶ **Play demo script** (or inject lines manually).
+**demo mode** → **Start demo call** → ▶ **Play demo script**.
 
 No API key? Everything still runs end-to-end in mock mode (deterministic router,
 canned integration verdicts, plain-Python deal maths) so the demo works offline.
+
+## 🤖 The Meet bot (joins real Google Meet calls)
+
+`bot/` is a standalone service that **actually joins the call** — no meeting-bot
+API needed, it drives a real (headless) Chrome:
+
+```bash
+cd le-closer
+pip install -r bot/requirements.txt && playwright install chromium
+
+# 1. create a call in the dashboard (paste a Meet link, or "+ Create space" via Meet API v2)
+# 2. send the bot into the meeting:
+python -m bot.run --meet-url https://meet.google.com/xxx-yyyy-zzz --call-id <call_id>
+
+# or let the bot create everything itself:
+python -m bot.run --create-call --meet-url https://meet.google.com/xxx-yyyy-zzz
+
+# offline / stage-safe simulated join (plays the realistic scripted call):
+python -m bot.run --demo --call-id <call_id>
+```
+
+What the bot does: opens the Meet link in headless Chrome (persistent profile
+`LECLOSER_CHROME_PROFILE` so a signed-in Google account works — Meet blocks
+anonymous joins on many Workspace domains) → enters as **"Le Closer Bot"** →
+clicks *Ask to join* → once admitted, **announces itself in the Meet chat** →
+captures the meeting tab audio (`getDisplayMedia({audio:true})` → AudioWorklet
+→ PCM16/16 kHz) → streams it to `ws://localhost:8003/ws/audio/{call_id}/client`,
+i.e. straight into the same Voxtral/pipeline as everything else. Bot lifecycle
+(`launching → joining → requested → in_call → capturing → left`) shows live in
+the dashboard top bar.
+
+**Consent-gated by design:** the setup screen requires the rep to confirm the
+client's recording consent; the bot posts an announcement in the Meet chat
+before capture starts; the demo script has the client explicitly agree. Google
+Meet/Calendar integration for creating spaces uses `GOOGLE_APPLICATION_CREDENTIALS`
+(Meet API v2 / Calendar API v3, see `bot/meet_api.py`).
 
 ## Architecture
 
@@ -73,9 +109,14 @@ Browser (React) ──WS PCM──▶ FastAPI ──▶ Voxtral Realtime (×2 ch
 
 ```
 le-closer/
+├── bot/              Meet bot: Playwright joiner + consent-gated audio capture + Meet/Calendar API
+│   ├── meet_bot.py       joins the call, streams PCM to the backend WS
+│   ├── audio_capture.js  in-page PCM16 capture (consent-gated)
+│   ├── meet_api.py       Meet API v2 spaces / Calendar conferenceData
+│   └── run.py            CLI: --meet-url | --create-space | --demo
 ├── backend/          FastAPI app (models, state, router, fast_agents, workflows, audio_gateway)
 │   ├── data/         pricing.yaml, faq, competitor notes
-│   └── demo/         script.json (text-injection demo lines)
+│   └── demo/         script.json (realistic scripted sales call)
 └── frontend/         React + Vite + TS + Tailwind + Zustand + markmap
 ```
 
