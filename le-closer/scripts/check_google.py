@@ -8,6 +8,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 cred = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 if not cred:
     print("FAIL: GOOGLE_APPLICATION_CREDENTIALS is not set.")

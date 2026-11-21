@@ -33,14 +33,49 @@ class MeetSpace:
 
 
 def _creds():
+    """Support both service-account JSON and OAuth client (installed/web) JSON.
+    OAuth flow caches tokens in GOOGLE_TOKEN_FILE (default ./google_token.json);
+    the first call runs the browser consent flow once."""
+    import json
+
     path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if not path or not os.path.exists(path):
-        raise MeetAPIUnavailable("GOOGLE_APPLICATION_CREDENTIALS not set — paste a Meet link or use demo mode.")
+        raise MeetAPIUnavailable("GOOGLE_APPLICATION_CREDENTIALS not set — point it at your client JSON.")
     try:
         from google.oauth2 import service_account
-        return service_account.Credentials.from_service_account_file(path, scopes=SCOPES)
+        from google.auth.transport.requests import Request
+
+        data = json.load(open(path))
+        if data.get("type") == "service_account":
+            return service_account.Credentials.from_service_account_file(path, scopes=SCOPES)
+
+        # OAuth client secret (installed/web) — interactive flow with cached token
+        from google_auth_oauthlib.flow import InstalledAppFlow
+        from google.oauth2.credentials import Credentials as UserCredentials
+
+        token_file = os.getenv("GOOGLE_TOKEN_FILE", os.path.join(os.path.dirname(path), "google_token.json"))
+        if os.path.exists(token_file):
+            creds = UserCredentials.from_authorized_user_file(token_file, SCOPES)
+            if creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            if creds.valid:
+                return creds
+        # InstalledAppFlow expects an "installed" key; re-key a "web" client to it
+        # (localhost redirect works the same)
+        cfg = json.load(open(path))
+        if "installed" not in cfg and "web" in cfg:
+            cfg = {"installed": cfg["web"]}
+            tmp = path + ".installed.json"
+            with open(tmp, "w") as f:
+                json.dump(cfg, f)
+            path = tmp
+        flow = InstalledAppFlow.from_client_secrets_file(path, scopes=SCOPES)
+        creds = flow.run_local_server(port=8080, prompt="consent")
+        with open(token_file, "w") as f:
+            f.write(creds.to_json())
+        return creds
     except ImportError as e:
-        raise MeetAPIUnavailable(f"google-auth not installed: {e}")
+        raise MeetAPIUnavailable(f"google auth libs not installed: {e}")
 
 
 def create_space() -> MeetSpace:

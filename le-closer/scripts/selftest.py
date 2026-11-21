@@ -70,12 +70,18 @@ except Exception as e:
 cred = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 check("GOOGLE_APPLICATION_CREDENTIALS set", bool(cred and os.path.exists(cred)), cred or "not set")
 if cred and os.path.exists(cred):
-    try:
-        from bot.meet_api import create_space
-        space = create_space()
-        check("Meet API v2 spaces.create", True, space.meeting_uri)
-    except Exception as e:
-        check("Meet API v2 spaces.create", False, str(e)[:160])
+    token = os.path.join(os.path.dirname(cred), "google_token.json")
+    if not os.path.exists(token):
+        check("Meet API v2 spaces.create", False,
+              "client JSON found, but OAuth consent not done yet — run: python scripts/check_google.py "
+              "(opens browser once, then caches google_token.json)")
+    else:
+        try:
+            from bot.meet_api import create_space
+            space = create_space()
+            check("Meet API v2 spaces.create", True, space.meeting_uri)
+        except Exception as e:
+            check("Meet API v2 spaces.create", False, str(e)[:160])
 else:
     check("Meet API v2 spaces.create", False, "no credentials file")
 
