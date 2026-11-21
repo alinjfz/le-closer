@@ -31,3 +31,6 @@ htmlcov/
 
 # Local project notes
 /mydocs/
+
+
+frontend/node_modules/
