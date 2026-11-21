@@ -287,3 +287,9 @@ Address “Copilot”, “co-pilot”, “co pilot”, or “Le Closer” in eit
 Weather, forecasts, news, current information, and explicit research/search requests use Mistral's hosted `web_search` tool through the Conversations API. Answers appear in Live copilot with source links when returned by the provider, and use the existing mute/voice controls. For example: “Oh, co-pilot, can you find tomorrow's weather in Paris, France?” If only a country is supplied for weather, copilot asks for a city or region. Address it again to answer, e.g. “Co-pilot, Paris.” Relative dates use `APP_TIMEZONE` (default Europe/London); `RESEARCH_MODEL` defaults to `mistral-medium-latest`.
 
 Research requests include the question and recent research exchanges, rather than the meeting transcript or notes. A failed search produces an explicit failure message instead of a forecast from model memory. Tests: `cd backend && python3 -m unittest test_research -v`.
+
+## Copilot speech timing
+
+Answer cards appear as soon as they are ready. Spoken answers wait until neither transcript channel has changed for **two seconds**. Partial text and finalized segments from either participant restart the timer; translation, notes and other agent updates do not. If conversation resumes during playback, the answer pauses and resumes from the same position after another two-second gap. Muting, ending the call, disconnecting the event stream or leaving the workspace cancels pending playback. A manual pause remains paused. The native audio play button follows the same silence rule.
+
+Silence is measured from incoming transcript events. The gate does not open or record another microphone stream. Regression checks use a fake clock and media player: `cd frontend && npm run test:speech`.

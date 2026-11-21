@@ -30,6 +30,7 @@ interface Store {
   call: CallState | null;
   partials: Record<string, string>;
   connected: boolean;
+  lastTranscriptActivityAt: number;
   activeTab: string;
   setTab: (t: string) => void;
   setCall: (c: CallState) => void;
@@ -61,22 +62,23 @@ export const useCallStore = create<Store>((set) => ({
   call: null,
   partials: {},
   connected: false,
+  lastTranscriptActivityAt: 0,
   activeTab: "To-do",
   setTab: (t) => set({ activeTab: t }),
-  setCall: (c) => set((s) => s.call?.call_id === c.call_id ? { call: c } : { call: c, partials: {}, activeTab: "To-do" }),
+  setCall: (c) => set((s) => s.call?.call_id === c.call_id ? { call: c } : { call: c, partials: {}, activeTab: "To-do", lastTranscriptActivityAt: Date.now() }),
   setConnected: (v) => set({ connected: v }),
-  reset: () => set({ call: null, partials: {}, connected: false, activeTab: "To-do" }),
+  reset: () => set({ call: null, partials: {}, connected: false, activeTab: "To-do", lastTranscriptActivityAt: 0 }),
   applyEvent: (type, payload) => set((s) => {
     if (!s.call) return s;
     const call = { ...s.call };
     switch (type) {
-      case "state.sync": return { call: payload, partials: {} };
+      case "state.sync": return { call: payload, partials: {}, lastTranscriptActivityAt: Date.now() };
       case "transcript.delta":
-        return { partials: { ...s.partials, [payload.speaker]: (s.partials[payload.speaker] || "") + payload.text } };
+        return { lastTranscriptActivityAt: payload.text ? Date.now() : s.lastTranscriptActivityAt, partials: { ...s.partials, [payload.speaker]: (s.partials[payload.speaker] || "") + payload.text } };
       case "transcript.segment": {
         const partials = { ...s.partials };
         delete partials[payload.speaker];
-        return { call: { ...call, segments: [...call.segments, payload] }, partials };
+        return { call: { ...call, segments: [...call.segments, payload] }, partials, lastTranscriptActivityAt: Date.now() };
       }
       case "transcript.translation": return { call: { ...call, segments: call.segments.map((segment) => segment.id === payload.id ? payload : segment) } };
       case "assistant.settings": return { call: { ...call, settings: payload } };
