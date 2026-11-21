@@ -1,0 +1,33 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+
+# Credentials and local authentication state
+client_secret*.json
+google_token*.json
+credentials*.json
+service-account*.json
+service_account*.json
+*.pem
+*.key
+
+# Generated files and local tools
+.DS_Store
+*.tsbuildinfo
+*.log
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+
+# Local project notes
+/mydocs/
