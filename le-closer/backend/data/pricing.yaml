@@ -1,0 +1,21 @@
+# Fictional pricing sheet for the demo (section 15.4, D11)
+list_price_per_seat: 30.0        # EUR / month
+currency: EUR
+cost_per_seat: 8.0               # for margin calc
+default_hourly_cost: 45.0        # EUR, used for ROI estimate
+
+# Discount floor depends on seats + contract length (higher = better deal for us)
+discount_steps:
+  - { min_seats: 500, min_years: 2, floor_pct: 20 }
+  - { min_seats: 200, min_years: 2, floor_pct: 15 }
+  - { min_seats: 200, min_years: 1, floor_pct: 12 }
+  - { min_seats: 50,  min_years: 1, floor_pct: 10 }
+
+absolute_floor_pct: 10.0
+
+# What can be traded for a discount
+tradeables:
+  - 2-year contract
+  - case study / reference
+  - faster signature
+  - pilot phase first

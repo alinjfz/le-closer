@@ -1,0 +1,11 @@
+[
+  {"speaker": "rep", "text": "Thanks for joining, Dr. Weber. May I record this call for our notes?"},
+  {"speaker": "client", "text": "Yes, that's fine. We run everything on SAP S/4HANA. Does your platform integrate with it?"},
+  {"speaker": "rep", "text": "Great question — let me check that live. I'll also send you the security document this week."},
+  {"speaker": "client", "text": "We have detailed questions on GDPR and data hosting. Where is your data hosted?"},
+  {"speaker": "client", "text": "We are about 300 users and would need at least 25% discount."},
+  {"speaker": "rep", "text": "This is going to be amazing and game-changing for your team!"},
+  {"speaker": "client", "text": "I will need to align with our works council before any decision."},
+  {"speaker": "client", "text": "That is not possible for us with a US-only hosting option."},
+  {"speaker": "client", "text": "Who else is involved in the decision on your side? What is the budget for this?"}
+]
