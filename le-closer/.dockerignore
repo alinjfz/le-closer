@@ -8,3 +8,5 @@
 .DS_Store
 **/*.log
 backend/test_*.py
+client_secret*.json
+google_token*.json

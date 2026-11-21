@@ -1,15 +1,16 @@
 """Configuration — model names, thresholds, flags. See plan section 22 open items."""
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 
 # Models
 ROUTER_MODEL = os.getenv("ROUTER_MODEL", "mistral-small-latest")
 HEAVY_MODEL = os.getenv("HEAVY_MODEL", "mistral-large-latest")  # Le Chonk
-VOXTRAL_MODEL = os.getenv("VOXTRAL_MODEL", "voxtral-mini-transcribe-realtime-latest")
+VOXTRAL_MODEL = os.getenv("VOXTRAL_MODEL", "voxtral-mini-transcribe-realtime-3")
 
 # Voxtral realtime settings (D4)
 VOXTRAL_TARGET_DELAY_MS = int(os.getenv("VOXTRAL_TARGET_DELAY_MS", "480"))

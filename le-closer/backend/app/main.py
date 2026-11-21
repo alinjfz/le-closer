@@ -4,6 +4,9 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import sys
+from contextlib import asynccontextmanager, suppress
+from urllib.parse import urlparse
 
 from pathlib import Path
 
@@ -18,7 +21,44 @@ from .router import route_segment, dispatch_labels
 from .workflows import post_call
 from .audio_gateway import VoxtralSession, get_sessions
 
-app = FastAPI(title="Le Closer", version="0.1.0")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+bot_tasks: dict[str, asyncio.Task] = {}
+
+
+async def stop_bot(call_id: str):
+    task = bot_tasks.get(call_id)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+@asynccontextmanager
+async def lifespan(app):
+    try:
+        yield
+    finally:
+        for call_id in list(bot_tasks):
+            await stop_bot(call_id)
+
+
+app = FastAPI(title="Le Closer", version="0.1.0", lifespan=lifespan)
+
+
+async def managed_bot(state):
+    try:
+        from bot.meet_bot import run_bot
+        await run_bot(state.meet_url, state.call_id, consent=True)
+    except asyncio.CancelledError:
+        state.bot_status, state.bot_detail = "left", "call stopped"
+        await store.emit(state.call_id, "bot.status", {"status": "left", "detail": state.bot_detail})
+        raise
+    except Exception as exc:
+        state.bot_status, state.bot_detail = "error", str(exc)[:1000]
+        await store.emit(state.call_id, "bot.status", {"status": "error", "detail": state.bot_detail})
+        await store.log_activity(state, "Meet bot", state.bot_detail, "error")
+    finally:
+        bot_tasks.pop(state.call_id, None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,17 +70,34 @@ app.add_middleware(
 
 @app.post("/calls")
 async def create_call(body: dict):
+    if body.get("start_bot"):
+        if body.get("demo"):
+            return {"error": "Disable demo mode to join a real meeting."}
+        if body.get("recording_consent") is not True:
+            return {"error": "Recording consent is required before joining."}
+        url = urlparse(body.get("meet_url") or "")
+        if url.scheme != "https" or url.hostname != "meet.google.com" or not url.path.strip("/"):
+            return {"error": "Enter a Google Meet link before starting a live call."}
+        from .mistral_client import has_api_key
+        if not has_api_key():
+            return {"error": "Set MISTRAL_API_KEY to enable live transcription."}
+        if any(not task.done() for task in bot_tasks.values()):
+            return {"error": "A Meet bot is already running. End that call first."}
     state = store.create_call(
         client=body.get("client"),
         mode=body.get("mode", "sales"),
         demo=body.get("demo", False),
         meet_url=body.get("meet_url"),
+        rep_name=body.get("rep_name", "You"),
     )
     # pre-call research + cultural briefing
     from .workflows import research
     asyncio.create_task(research.research_brief(state, store))
     asyncio.create_task(post_call.cultural_briefing(state, store))
     await store.log_activity(state, "LeCloser", f"call created ({state.client.company})", "done")
+    if body.get("start_bot"):
+        state.bot_status = "launching"
+        bot_tasks[state.call_id] = asyncio.create_task(managed_bot(state))
     return {"call_id": state.call_id, "state": state.model_dump()}
 
 
@@ -66,7 +123,7 @@ async def create_meet_space(call_id: str):
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     try:
         from bot.meet_api import create_space
-        space = create_space()
+        space = await asyncio.to_thread(create_space)
         state.meet_url = space.meeting_uri
         await store.emit(call_id, "meet.update", {"meet_url": space.meeting_uri,
                                                    "meeting_code": space.meeting_code})
@@ -110,6 +167,7 @@ async def end_call(call_id: str):
     if not state:
         return {"error": "not found"}
     state.ended = True
+    await stop_bot(call_id)
     await store.emit(call_id, "call.ended", {})
     asyncio.create_task(post_call.run_post_call(state, store))
     return {"ok": True}
@@ -217,13 +275,22 @@ async def prototype(call_id: str, body: dict):
     if not state:
         return {"error": "not found"}
     topic = body.get("topic", "the integration")
+    safe = topic.replace("<", "&lt;").replace(">", "&gt;")
     html = (
-        "<html><body style='font-family:sans-serif;background:#0f172a;color:#e2e8f0;"
-        "padding:24px'><h2 style='color:#f59e0b'>Prototype: " + topic + "</h2>"
-        "<p>This is a sandboxed mock-up of how the " + topic +
-        " would look in Mistral Studio.</p>"
-        "<button onclick=\"this.textContent='Synced ✓'\" style='padding:8px 16px;"
-        "background:#f59e0b;border:none;border-radius:6px;cursor:pointer'>Run sync</button>"
+        "<html><head><style>body{font-family:ui-sans-serif,system-ui,sans-serif;background:#0f172a;"
+        "color:#e2e8f0;margin:0;padding:20px} h2{color:#f59e0b;font-size:18px;margin:0 0 4px} "
+        ".sub{color:#94a3b8;font-size:12px;margin-bottom:16px} table{width:100%;border-collapse:collapse;"
+        "font-size:12px} td,th{border-bottom:1px solid #334155;padding:6px 8px;text-align:left} "
+        "th{color:#94a3b8;font-weight:600} .badge{display:inline-block;background:#14532d;color:#86efac;"
+        "border-radius:10px;padding:1px 8px;font-size:10px} button{background:#f59e0b;color:#0f172a;"
+        "border:none;border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer;margin-top:12px}</style></head>"
+        "<body><h2>Prototype: " + safe + "</h2>"
+        "<div class='sub'>Self-contained mock built live by Le Chonk — sandboxed iframe, no build step.</div>"
+        "<table><tr><th>Object</th><th>Direction</th><th>Sync</th><th>Status</th></tr>"
+        "<tr><td>Customs declarations</td><td>S/4HANA → Studio</td><td>every 15 min</td><td><span class='badge'>LIVE</span></td></tr>"
+        "<tr><td>Shipments</td><td>bi-directional</td><td>realtime</td><td><span class='badge'>LIVE</span></td></tr>"
+        "<tr><td>Invoices</td><td>Studio → S/4HANA</td><td>on approval</td><td><span class='badge'>QUEUED</span></td></tr></table>"
+        "<button onclick=\"this.textContent='Sync triggered ✓';this.disabled=true\">Run sync now</button>"
         "</body></html>"
     )
     proto = {"id": f"proto_{int(time.time())}", "title": f"Prototype: {topic}", "html": html}
@@ -262,17 +329,28 @@ async def ws_audio(websocket: WebSocket, call_id: str, channel: str):
     if not state:
         await websocket.close(code=4404)
         return
+    if channel not in ("rep", "client") or state.ended:
+        await websocket.close(code=4400)
+        return
     session = get_sessions(call_id).get(channel)
-    if session is None:
-        session = VoxtralSession(state, store, channel)
-        get_sessions(call_id)[channel] = session
-    await session.connect()
+    if session is not None:
+        await websocket.close(code=4409, reason="Audio channel is already connected")
+        return
+    session = VoxtralSession(state, store, channel)
+    get_sessions(call_id)[channel] = session
     try:
+        await session.connect()
         while True:
             data = await websocket.receive_bytes()
             await session.send_audio(data)
     except WebSocketDisconnect:
         pass
+    except Exception as exc:
+        await store.log_activity(state, "Transcription", str(exc)[:500], "error")
+        await websocket.close(code=1011, reason="Transcription failed; see activity log")
+    finally:
+        await session.close()
+        get_sessions(call_id).pop(channel, None)
 
 
 @app.websocket("/ws/events/{call_id}")

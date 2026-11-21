@@ -20,16 +20,26 @@ interface CallState {
   activity: ActivityEntry[]; notes: any; followup_draft: string | null;
   followup_status: string; ended: boolean;
   meet_url: string | null; bot_status: string; bot_detail: string; started_at: number;
+  rep_name: string;
 }
 
 interface Store {
   call: CallState | null;
   partials: Record<string, string>;
   connected: boolean;
+  activeTab: string;
+  setTab: (t: string) => void;
   setCall: (c: CallState) => void;
   setConnected: (v: boolean) => void;
   applyEvent: (type: string, payload: any) => void;
   reset: () => void;
+}
+
+export function speakerLabel(call: CallState | null, speaker: string): string {
+  if (!call) return speaker.toUpperCase();
+  if (speaker === "rep") return call.rep_name || "You";
+  const p = call.client.people?.[0];
+  return p?.name ? `${p.name}` : "Client";
 }
 
 const initialCall: CallState = {
@@ -40,13 +50,15 @@ const initialCall: CallState = {
   facts: { currency: "EUR" }, numbers: null, mindmap_md: "# Call",
   prototypes: [], activity: [], notes: null, followup_draft: null,
   followup_status: "none", ended: false,
-  meet_url: null, bot_status: "offline", bot_detail: "", started_at: 0,
+  meet_url: null, bot_status: "offline", bot_detail: "", started_at: 0, rep_name: "You",
 };
 
 export const useCallStore = create<Store>((set) => ({
   call: null,
   partials: {},
   connected: false,
+  activeTab: "To-do",
+  setTab: (t) => set({ activeTab: t }),
   setCall: (c) => set({ call: c }),
   setConnected: (v) => set({ connected: v }),
   reset: () => set({ call: null, partials: {}, connected: false }),
@@ -75,7 +87,7 @@ export const useCallStore = create<Store>((set) => ({
       case "flow.update": return { call: { ...call, flow: payload } };
       case "numbers.update": return { call: { ...call, facts: payload.facts, numbers: payload.numbers } };
       case "mindmap.update": return { call: { ...call, mindmap_md: payload } };
-      case "prototype.ready": return { call: { ...call, prototypes: [...call.prototypes, payload] } };
+      case "prototype.ready": return { call: { ...call, prototypes: [...call.prototypes, payload] }, activeTab: "Prototype" };
       case "activity.log": return { call: { ...call, activity: [...call.activity.slice(-199), payload] } };
       case "call.ended": return { call: { ...call, ended: true } };
       case "bot.status": return { call: { ...call, bot_status: payload.status, bot_detail: payload.detail } };

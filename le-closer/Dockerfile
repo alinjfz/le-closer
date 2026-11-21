@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: runtime ----
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim AS backend-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
@@ -34,10 +34,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # App user + browser dir (tiny layer), then browser download AS the app user
 # so no chown/chmod copy layer is created
-RUN useradd -m -u 1000 lecloser && mkdir -p /ms-playwright && chown lecloser:lecloser /ms-playwright
+RUN useradd -m -u 1000 lecloser && mkdir -p /ms-playwright /home/lecloser/.config/lecloser && chown -R lecloser:lecloser /ms-playwright /home/lecloser/.config
 USER lecloser
 RUN playwright install chromium-headless-shell
 
+# Development runs source bind mounts with Uvicorn's reloader.
+FROM backend-base AS development
+EXPOSE 8003
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8003", "--reload", "--reload-dir", "/app/backend", "--reload-dir", "/app/bot", "--timeout-graceful-shutdown", "5"]
+
+FROM backend-base AS runtime
 # App code — copied last so code changes don't invalidate the layers above
 COPY --chown=lecloser:lecloser backend/ ./backend/
 COPY --chown=lecloser:lecloser bot/ ./bot/

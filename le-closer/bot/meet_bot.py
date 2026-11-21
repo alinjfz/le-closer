@@ -7,8 +7,8 @@ Flow:
      domains).
   2. Enter the bot name "Le Closer Bot" and click "Ask to join" / "Join now".
   3. Announce itself in the Meet chat (transparency + consent).
-  4. Once admitted, inject audio_capture.js: the Meet tab's audio is captured
-     via getDisplayMedia, converted to PCM16/16kHz, and every chunk is pushed
+  4. Once admitted, inject audio_capture.js: incoming WebRTC audio tracks are captured
+     directly, converted to PCM16/16kHz, and every chunk is pushed
      through the exposed window.__leCloserSendPCM binding into Python, which
      forwards it to ws://backend/ws/audio/{call_id}/client.
 
@@ -41,7 +41,6 @@ ANNOUNCE = (
 )
 
 CHROME_ARGS = [
-    "--headless=new",
     "--autoplay-policy=no-user-gesture-required",
     "--use-fake-ui-for-media-stream",     # auto-accept mic/cam permission prompts
     "--use-fake-device-for-media-stream", # virtual mic so Meet is happy
@@ -62,96 +61,140 @@ class BotStatus:
                          json={"status": status, "detail": detail})
 
 
-async def run_bot(meet_url: str, call_id: str, consent: bool = True, admit_timeout: int = 120) -> None:
-    """Real mode: join the Meet call with Playwright and capture its audio."""
-    try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        raise RuntimeError("playwright not installed — pip install playwright && playwright install chromium")
+# Installed before Meet creates peer connections, so capture uses remote audio
+# directly and never waits for a screen-sharing picker in headless Chrome.
+TRACK_PEERS_JS = """
+(() => {
+  window.__leCloserPeers = [];
+  window.RTCPeerConnection = new Proxy(window.RTCPeerConnection, {
+    construct(Target, args) {
+      const peer = new Target(...args);
+      window.__leCloserPeers.push(peer);
+      return peer;
+    }
+  });
+})();
+"""
+
+
+async def run_bot(meet_url: str, call_id: str, consent: bool = False, admit_timeout: int = 120) -> None:
+    """Join a meeting only with explicit recording consent; always release Chrome."""
+    if not consent:
+        raise RuntimeError("Recording consent is required before the bot joins")
+    import re
+    from contextlib import suppress
+    from playwright.async_api import async_playwright
 
     status = BotStatus(call_id)
-    await status.post("launching", "starting headless Chrome")
-
+    await status.post("launching", "starting Chrome")
     capture_js = (Path(__file__).parent / "audio_capture.js").read_text()
     async with async_playwright() as pw:
-        # persistent profile lets you sign in once; set LECLOSER_CHROME_PROFILE to reuse it
         profile = os.getenv("LECLOSER_CHROME_PROFILE", "/tmp/lecloser-chrome-profile")
         ctx = await pw.chromium.launch_persistent_context(
             profile, headless=True, args=CHROME_ARGS,
-            viewport={"width": 1280, "height": 800},
+            viewport={"width": 1280, "height": 800}, locale="en-US",
         )
-        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-
-        # Python-side receiver for PCM chunks from the page
-        queue: asyncio.Queue = asyncio.Queue()
-        await page.expose_function("__leCloserSendPCM", lambda b64: queue.put_nowait(b64))
-
-        await status.post("joining", meet_url)
-        await page.goto(meet_url, wait_until="domcontentloaded", timeout=60000)
-
-        # fill bot name
+        writer = None
         try:
-            name_input = page.locator('input[aria-label*="name" i], input[placeholder*="name" i]').first
-            await name_input.fill(BOT_NAME, timeout=8000)
-        except Exception:
-            pass
+            await ctx.add_init_script(TRACK_PEERS_JS)
+            page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            queue = asyncio.Queue(maxsize=400)
 
-        # click "Ask to join" / "Join now"
-        joined = False
-        for label in ["Ask to join", "Join now", "Join"]:
+            def receive_pcm(chunk):
+                if queue.full():
+                    raise RuntimeError("Meeting audio upload cannot keep up")
+                queue.put_nowait(chunk)
+
+            await page.expose_function("__leCloserSendPCM", receive_pcm)
+            await status.post("joining", meet_url)
+            await page.goto(meet_url, wait_until="domcontentloaded", timeout=60000)
+            # First-time Meet profiles can show this dialog before the prejoin
+            # controls. The bot never needs to publish its mic or camera.
+            without_devices = page.get_by_role(
+                "button", name=re.compile("Continue without microphone and camera", re.I)
+            ).first
             try:
-                btn = page.get_by_role("button", name=label).first
-                await btn.click(timeout=5000)
-                joined = True
-                break
+                await without_devices.click(timeout=5000)
             except Exception:
-                continue
-        await status.post("requested", "waiting to be admitted" if joined else "join button not found")
+                pass  # This onboarding prompt is not shown on every visit.
+            text = await page.inner_text("body")
+            if "you can't join this video call" in text.lower():
+                raise RuntimeError(
+                    "Google Meet rejected the bot's browser before admission. "
+                    "The page does not explain the cause; this can still occur with Open meeting access. "
+                    "The current bot uses a separate headless Chrome profile, and API OAuth does not sign "
+                    "that browser in. Next steps: add interactive browser sign-in for the bot, or implement "
+                    "meeting-tab audio capture in your own browser. Neither alternative is implemented yet."
+                )
+            try:
+                await page.locator('input[aria-label*="name" i], input[placeholder*="name" i]').first.fill(BOT_NAME, timeout=8000)
+            except Exception:
+                pass
 
-        # wait until we're inside the meeting (toolbar / leave button appears)
-        try:
-            await page.get_by_role("button", name="Leave call").first.wait_for(timeout=admit_timeout * 1000)
-            await status.post("in_call", "admitted to the meeting")
-        except Exception:
-            await status.post("waiting", f"not admitted within {admit_timeout}s — continue in demo mode")
-            return
+            # Keep the bot's virtual mic/camera off before admission.
+            for label in ("Turn off microphone", "Turn off camera"):
+                button = page.get_by_role("button", name=re.compile(label, re.I)).first
+                if await button.is_visible():
+                    await button.click()
 
-        # announce in chat, then mark consent (client agreed on the call)
-        try:
-            await page.get_by_role("button", name="Chat").click(timeout=5000)
-            msg = page.locator('textarea[aria-label*="message" i], div[contenteditable="true"]').first
-            await msg.fill(ANNOUNCE)
+            join = page.get_by_role("button", name=re.compile(r"^(Ask to join|Join now|Join)$", re.I)).first
+            try:
+                await join.click(timeout=20000)
+            except Exception as exc:
+                text = (await page.inner_text("body"))[:600]
+                raise RuntimeError("Meet join control unavailable. API authorization does not sign the bot's Chrome into Google. " + text) from exc
+            await status.post("requested", "Admit Le Closer Bot in Google Meet")
+            try:
+                await page.get_by_role("button", name=re.compile("Leave call", re.I)).first.wait_for(timeout=admit_timeout * 1000)
+            except Exception as exc:
+                raise RuntimeError("Bot was not admitted. Check the host's join requests or the meeting's guest restrictions.") from exc
+            await status.post("in_call", "admitted; announcing transcription")
+            # Do not capture if the announcement cannot be delivered.
+            await page.get_by_role("button", name=re.compile(r"chat|Chat with everyone", re.I)).first.click(timeout=10000)
+            message = page.locator('textarea[aria-label*="message" i], input[placeholder*="message" i], div[contenteditable="true"]').first
+            await message.fill(ANNOUNCE, timeout=10000)
             await page.keyboard.press("Enter")
-        except Exception:
-            pass
-        await page.evaluate("window.__leCloserConsentGiven = true")
+            await page.evaluate("window.__leCloserConsentGiven = true")
 
-        # start forwarding audio to the backend
-        async def ws_writer():
-            async with websockets.connect(f"{WS_BASE}/ws/audio/{call_id}/client") as ws:
+            async def ws_writer():
+                async with websockets.connect(f"{WS_BASE}/ws/audio/{call_id}/client", proxy=None) as ws:
+                    while True:
+                        chunk = await queue.get()
+                        await ws.send(base64.b64decode(chunk))
+
+            writer = asyncio.create_task(ws_writer())
+            result = await page.evaluate(capture_js)
+            if result != "capturing":
+                raise RuntimeError(f"Audio capture did not start: {result}")
+            # A remote audio chunk, not just a successful script injection, proves capture.
+            for _ in range(100):
+                if writer.done():
+                    await writer
+                if await page.evaluate("window.__leCloserAudioChunks > 0"):
+                    break
+                await asyncio.sleep(0.2)
+            else:
+                raise RuntimeError("No remote audio received. Have another participant join and speak, then retry.")
+            await status.post("capturing", "remote meeting audio streaming to transcription")
+            async with httpx.AsyncClient() as client:
                 while True:
-                    chunk = await queue.get()
-                    if chunk is None:
-                        return
-                    await ws.send(base64.b64decode(chunk))
-        writer = asyncio.create_task(ws_writer())
-        await status.post("capturing", "streaming meeting audio → Le Closer")
-
-        # inject capture into the Meet tab
-        result = await page.evaluate(capture_js)
-        print("capture:", result)
-
-        # stay in the call until the backend ends the call
-        while True:
-            state = await httpx.AsyncClient().get(f"{BACKEND}/calls/{call_id}")
-            if state.json().get("ended"):
-                break
-            await asyncio.sleep(2)
-
-        queue.put_nowait(None)
-        await writer
-        await status.post("left", "call ended")
-        await ctx.close()
+                    if writer.done():
+                        await writer
+                        raise RuntimeError("Audio forwarding stopped")
+                    response = await client.get(f"{BACKEND}/calls/{call_id}")
+                    response.raise_for_status()
+                    if response.json().get("ended"):
+                        break
+                    if not await page.get_by_role("button", name=re.compile("Leave call", re.I)).first.is_visible():
+                        break
+                    await asyncio.sleep(1)
+            await status.post("left", "call ended")
+        finally:
+            if writer:
+                writer.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await writer
+            await ctx.close()
 
 
 async def run_demo(call_id: str, script_path: str | None = None, delay: float = 2.5) -> None:

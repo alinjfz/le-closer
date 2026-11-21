@@ -3,7 +3,7 @@
  * PRIVACY: this only runs after (a) the rep confirmed recording consent on the
  * Le Closer setup screen and (b) the client agreed on the call ("May I record
  * this call?"). The bot announces itself in the Meet chat before capturing.
- * Captures the meeting tab audio via getDisplayMedia({audio:true}), converts
+ * Captures incoming WebRTC audio tracks from the meeting, converts
  * to 16-bit PCM mono 16 kHz in an AudioWorklet, and ships base64 chunks to
  * Python via the exposed window.__leCloserSendPCM() binding (Playwright
  * expose_function), which forwards them to the Le Closer backend WebSocket.
@@ -14,16 +14,9 @@
   if (!window.__leCloserConsentGiven) return "consent-required";
   window.__leCloserCapture = true;
 
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
-    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  });
-  const audioTrack = stream.getAudioTracks()[0];
-  if (!audioTrack) throw new Error("no audio track — tab audio capture blocked");
-  stream.getVideoTracks().forEach((t) => t.stop());
-
   const ctx = new AudioContext({ sampleRate: 16000 });
-  const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+  await ctx.resume();
+  window.__leCloserAudioChunks = 0;
 
   const workletCode = `
     class PCM extends AudioWorkletProcessor {
@@ -46,7 +39,7 @@
             let bin = ''; const CH = 0x8000;
             for (let i = 0; i < bytes.length; i += CH)
               bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
-            port.postMessage(btoa(bin));
+            this.port.postMessage(btoa(bin));
           }
         }
         return true;
@@ -57,13 +50,33 @@
   const blob = new Blob([workletCode], { type: "application/javascript" });
   await ctx.audioWorklet.addModule(URL.createObjectURL(blob));
 
-  const node = new AudioWorkletNode(ctx, "pcm");
+  const node = new AudioWorkletNode(ctx, "pcm", { channelCount: 1, channelCountMode: "explicit" });
   node.port.onmessage = (e) => {
+    window.__leCloserAudioChunks++;
     if (typeof window.__leCloserSendPCM === "function") window.__leCloserSendPCM(e.data);
   };
-  src.connect(node);
-  node.connect(ctx.destination);
-
-  audioTrack.onended = () => { window.__leCloserCapture = false; };
+  // Audio graph mixes remote receivers to mono; keep the output silent.
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  node.connect(silent).connect(ctx.destination);
+  const sources = new Map();
+  const attach = () => {
+    for (const peer of window.__leCloserPeers || []) {
+      for (const receiver of peer.getReceivers()) {
+        const track = receiver.track;
+        if (!track || track.kind !== "audio" || track.readyState !== "live" || sources.has(track.id)) continue;
+        const source = ctx.createMediaStreamSource(new MediaStream([track]));
+        source.connect(node);
+        sources.set(track.id, source);
+      }
+    }
+  };
+  attach();
+  const timer = setInterval(attach, 500);
+  window.addEventListener("pagehide", () => {
+    clearInterval(timer);
+    ctx.close();
+    window.__leCloserCapture = false;
+  }, { once: true });
   return "capturing";
 })();

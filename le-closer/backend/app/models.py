@@ -108,3 +108,4 @@ class CallState(BaseModel):
     bot_status: str = "offline"   # offline | launching | joining | requested | in_call | capturing | waiting | left
     bot_detail: str = ""
     started_at: float = 0.0
+    rep_name: str = "You"         # display name for the rep channel

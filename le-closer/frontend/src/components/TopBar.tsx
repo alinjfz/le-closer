@@ -3,6 +3,7 @@ import { useCallStore } from "../store/callStore";
 import { api } from "../lib/api";
 
 const BOT_LABEL: Record<string, { icon: string; cls: string; text: string }> = {
+  error: { icon: "⚠️", cls: "bg-red-700", text: "bot error — hover for details" },
   offline: { icon: "🤖", cls: "bg-slate-700", text: "bot offline" },
   launching: { icon: "🤖", cls: "bg-slate-600 animate-pulse", text: "bot launching…" },
   joining: { icon: "🤖", cls: "bg-slate-600 animate-pulse", text: "bot joining…" },
@@ -37,20 +38,22 @@ export default function TopBar({ onEndCall }: { onEndCall: () => void }) {
     onEndCall();
   };
 
+
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-panel border-b border-slate-700 flex-wrap">
       <span className="text-xl font-bold text-accent">LE CLOSER</span>
       <span className="text-sm text-slate-300">🇩🇪 {call.client.company}</span>
-      <span className={`text-xs px-2 py-0.5 rounded-full ${bot.cls}`} title={call.bot_detail}>
+      {call.demo && <span className="text-xs bg-amber-800 px-2 py-1 rounded">Demo mode — scripted audio</span>}
+      {["launching", "joining", "requested", "in_call", "capturing"].includes(call.bot_status) && <span className={`text-xs px-2 py-0.5 rounded-full ${bot.cls}`} title={call.bot_detail}>
         {bot.icon} {bot.text}
-      </span>
+      </span>}
       {call.meet_url && (
         <a href={call.meet_url} target="_blank" rel="noreferrer" className="text-xs text-sky-400 hover:underline truncate max-w-[220px]">
           🔗 {call.meet_url.replace("https://", "")}
         </a>
       )}
       <span className={`text-xs px-2 py-0.5 rounded-full ${connected ? "bg-green-600" : "bg-red-600"}`}>
-        {connected ? "● LIVE" : "○ reconnecting"}
+        {connected ? "● Dashboard connected" : "○ reconnecting"}
       </span>
       <span className="text-xs text-slate-400 font-mono">{timer}</span>
       <div className="flex-1" />

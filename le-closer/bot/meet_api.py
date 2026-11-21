@@ -13,7 +13,9 @@ back to a user-pasted Meet link or demo mode.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
 SCOPES = [
     "https://www.googleapis.com/auth/meetings.space.created",
@@ -38,9 +40,17 @@ def _creds():
     the first call runs the browser consent flow once."""
     import json
 
+    project_root = Path(__file__).resolve().parents[1]
+    load_dotenv(project_root / ".env")
     path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if not path or not os.path.exists(path):
+    if not path:
         raise MeetAPIUnavailable("GOOGLE_APPLICATION_CREDENTIALS not set — point it at your client JSON.")
+    credential_path = Path(path).expanduser()
+    if not credential_path.is_absolute():
+        credential_path = project_root / credential_path
+    if not credential_path.is_file():
+        raise MeetAPIUnavailable(f"Google credentials file not found: {credential_path}")
+    path = str(credential_path)
     try:
         from google.oauth2 import service_account
         from google.auth.transport.requests import Request
@@ -60,17 +70,15 @@ def _creds():
                 creds.refresh(Request())
             if creds.valid:
                 return creds
-        # InstalledAppFlow expects an "installed" key; re-key a "web" client to it
-        # (localhost redirect works the same)
-        cfg = json.load(open(path))
-        if "installed" not in cfg and "web" in cfg:
-            cfg = {"installed": cfg["web"]}
-            tmp = path + ".installed.json"
-            with open(tmp, "w") as f:
-                json.dump(cfg, f)
-            path = tmp
-        flow = InstalledAppFlow.from_client_secrets_file(path, scopes=SCOPES)
-        creds = flow.run_local_server(port=8080, prompt="consent")
+        # The library accepts both web and installed clients. Keep mounted
+        # credentials read-only; changing JSON keys cannot change Google's type.
+        flow = InstalledAppFlow.from_client_config(data, scopes=SCOPES)
+        creds = flow.run_local_server(
+            host="localhost", port=8080,
+            bind_addr=os.getenv("GOOGLE_OAUTH_BIND_ADDRESS", "127.0.0.1"),
+            open_browser=os.getenv("GOOGLE_OAUTH_OPEN_BROWSER", "true").lower() == "true",
+            timeout_seconds=180, prompt="consent",
+        )
         with open(token_file, "w") as f:
             f.write(creds.to_json())
         return creds

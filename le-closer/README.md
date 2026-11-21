@@ -17,6 +17,72 @@ call, crunches the deal numbers, and handles the follow-up after the call.
 
 ## Quick start
 
+### Live transcription from your Meet tab (no bot)
+
+1. Start the Docker development stack with `./dev` from the repository root.
+2. Open Google Meet and `http://localhost:5173` in the same Chrome or Edge browser.
+3. Click **Start live dashboard**. A Meet link is optional; no bot is launched.
+4. Confirm everyone on the call consents to transcription.
+5. Click **Share Meet tab audio**, choose the Meet browser tab, enable
+   **Share tab audio**, and click **Share**.
+6. Optionally click **Capture my microphone** to include your own voice.
+
+The audio meters show incoming levels. Meeting-tab audio appears as the client
+channel; your microphone appears as the rep channel. Tab audio alone generally
+does not include your own microphone. The browser must expose an audio track;
+selecting a window or screen without audio produces a visible error.
+Only PCM audio is uploaded; captured video frames are not transmitted. Capture
+ends when you stop sharing, stop capture, end the call, or leave the dashboard.
+No Google API credentials or bot admission are needed for this capture mode.
+The backend still requires `MISTRAL_API_KEY` for live transcription.
+
+Audio capture regression checks: `cd frontend && npm run test:audio`.
+
+### Docker development with hot reload
+
+From the repository root, run `./dev` to build/start the development stack and
+follow its logs. Press Ctrl+C to stop. Use `./dev -d --wait` to leave it running
+in the background. Existing development containers are reused.
+
+Set `MISTRAL_API_KEY` and `GOOGLE_APPLICATION_CREDENTIALS` in `le-closer/.env`.
+The Google credential value must be the host path to your OAuth client JSON.
+Then, from `le-closer`:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build -d --wait
+# Dashboard with React hot reload: http://localhost:5173
+# Backend API: http://localhost:8003
+docker compose -f docker-compose.dev.yml logs -f app frontend
+```
+
+Frontend edits update through Vite HMR. Python edits in `backend` or `bot`
+restart the backend automatically through Uvicorn. A Python reload ends the
+active meeting bot and clears in-memory calls; start a new call after reloading.
+Both services use polling so edits on Docker Desktop bind mounts are detected.
+
+Google credentials are mounted read-only, and OAuth tokens plus the bot Chrome
+profile persist in the `google-state` volume. For first-time API authorization,
+click **Create space**, open the Google consent URL printed in the app logs,
+and finish sign-in in your host browser. The localhost OAuth callback on port
+8080 is forwarded into the container; a Web OAuth client must allow
+`http://localhost:8080/`. The consent listener times out after three minutes.
+API authorization does not sign the bot Chrome profile into Google Meet.
+
+After changing `.env`, recreate the backend; dependency changes need a rebuild:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --force-recreate app
+docker compose -f docker-compose.dev.yml up --build -d
+# After frontend package/lock changes, update its dependency volume:
+docker compose -f docker-compose.dev.yml exec frontend npm ci
+# Stop development services (keeps Google login state):
+docker compose -f docker-compose.dev.yml down
+```
+
+Optional host ports: `LECLOSER_WEB_PORT=5174 LECLOSER_API_PORT=8004 docker compose
+-f docker-compose.dev.yml up -d`. These settings leave the container's internal
+ports unchanged. Keep development and production stacks on different host ports.
+
 ### 🐳 Docker (recommended — one image, everything included)
 
 ```bash
@@ -32,7 +98,7 @@ docker run --rm le-closer python -m bot.run --demo --create-call
 
 # real meeting:
 docker run --rm -e LECLOSER_BACKEND=http://host.docker.internal:8003 \
-  le-closer python -m bot.run --meet-url https://meet.google.com/xxx-yyyy-zzz --create-call
+  le-closer python -m bot.run --consent --meet-url https://meet.google.com/xxx-yyyy-zzz --create-call
 
 # or with compose (app + demo bot):
 docker compose --profile demo up --build
@@ -74,11 +140,12 @@ cd le-closer
 pip install -r bot/requirements.txt && playwright install chromium
 
 # 1. create a call in the dashboard (paste a Meet link, or "+ Create space" via Meet API v2)
-# 2. send the bot into the meeting:
-python -m bot.run --meet-url https://meet.google.com/xxx-yyyy-zzz --call-id <call_id>
+# 2. disable demo mode, confirm participant consent, and click Start call; the bot starts automatically.
+# Optional manual launch for a call created without automatic launch:
+python -m bot.run --consent --meet-url https://meet.google.com/xxx-yyyy-zzz --call-id <call_id>
 
 # or let the bot create everything itself:
-python -m bot.run --create-call --meet-url https://meet.google.com/xxx-yyyy-zzz
+python -m bot.run --consent --create-call --meet-url https://meet.google.com/xxx-yyyy-zzz
 
 # offline / stage-safe simulated join (plays the realistic scripted call):
 python -m bot.run --demo --call-id <call_id>
@@ -88,7 +155,7 @@ What the bot does: opens the Meet link in headless Chrome (persistent profile
 `LECLOSER_CHROME_PROFILE` so a signed-in Google account works — Meet blocks
 anonymous joins on many Workspace domains) → enters as **"Le Closer Bot"** →
 clicks *Ask to join* → once admitted, **announces itself in the Meet chat** →
-captures the meeting tab audio (`getDisplayMedia({audio:true})` → AudioWorklet
+captures incoming WebRTC audio (AudioWorklet
 → PCM16/16 kHz) → streams it to `ws://localhost:8003/ws/audio/{call_id}/client`,
 i.e. straight into the same Voxtral/pipeline as everything else. Bot lifecycle
 (`launching → joining → requested → in_call → capturing → left`) shows live in
@@ -155,3 +222,21 @@ cd backend
 python3 test_api.py   # REST pipeline end-to-end
 python3 test_ws.py    # WebSocket event stream end-to-end
 ```
+
+## Troubleshooting live Meet calls
+
+Google API authorization creates meeting spaces; it does not sign the bot's
+separate Chrome profile into Google. The meeting must allow guest requests, or
+the bot profile must already be signed in to an account permitted to join.
+The host must admit **Le Closer Bot**. Disable **Demo mode**, paste a valid
+Meet URL, confirm participant consent, then click **Start call + send bot**.
+The **+ Create space** button prepares a link; it does not start recording.
+
+Bot failures appear in the status badge tooltip and activity log. The bot stops
+and releases Chrome when the call ends or the backend shuts down. Only one
+automatically launched bot can run at a time because it shares a Chrome profile.
+Live transcription needs `MISTRAL_API_KEY` and an available realtime model
+(default `voxtral-mini-transcribe-realtime-3`). After changing Python code or
+`.env`, restart the backend and refresh the dashboard.
+
+Regression checks: `cd backend && python3 -m unittest test_live_meet -v`.

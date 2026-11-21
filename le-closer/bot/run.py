@@ -18,6 +18,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from bot.meet_api import MeetAPIUnavailable, create_space, meeting_code_from_url
 from bot.meet_bot import BACKEND, run_bot, run_demo
@@ -41,7 +44,10 @@ async def main() -> None:
     p.add_argument("--create-call", action="store_true", help="create the call in the backend first")
     p.add_argument("--demo", action="store_true", help="simulated join — no browser, plays the demo script")
     p.add_argument("--delay", type=float, default=2.5, help="demo script delay between lines (s)")
+    p.add_argument("--consent", action="store_true", help="confirm all participants consent to transcription")
     args = p.parse_args()
+    if not args.demo and not args.consent:
+        p.error("Live meetings require --consent after participants agree to transcription")
 
     meet_url = args.meet_url
     if args.create_space:
@@ -65,7 +71,7 @@ async def main() -> None:
             print("error: pass --meet-url or --create-space (or --demo)")
             sys.exit(2)
         print(f"joining {meet_url} as Le Closer Bot for call {call_id} …")
-        await run_bot(meet_url, call_id)
+        await run_bot(meet_url, call_id, consent=args.consent)
 
 
 if __name__ == "__main__":
