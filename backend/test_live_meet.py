@@ -53,7 +53,9 @@ class LiveMeetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["type"], "input_audio.append")
         self.assertEqual(base64.b64decode(payload["audio"]), b"\x01\x00\x02\x00")
         with patch("app.router.route_segment", new_callable=AsyncMock, return_value={"labels": []}), \
-             patch("app.router.dispatch_labels", new_callable=AsyncMock):
+             patch("app.router.dispatch_labels", new_callable=AsyncMock), \
+             patch("app.live_assistant.process_segment", new_callable=AsyncMock), \
+             patch("app.live_assistant.translate_segment", new_callable=AsyncMock):
             await session.handle_event({"type": "transcription.text.delta", "text": "We need "})
             await session.handle_event({"type": "turn.end"})
             self.assertEqual(state.segments, [])

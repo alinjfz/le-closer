@@ -35,3 +35,9 @@ DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 DEFAULT_LIST_PRICE_PER_SEAT = 30.0  # EUR / month
 DEFAULT_COST_PER_SEAT = 8.0
 ABSOLUTE_DISCOUNT_FLOOR_PCT = 10.0
+
+# All inference and media stay behind the server-side Mistral API key.
+CODE_MODEL = os.getenv("CODE_MODEL", "mistral-large-latest")
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "mistral-medium-latest")
+TTS_MODEL = os.getenv("TTS_MODEL", "voxtral-mini-tts-3-0")
+TTS_VOICE_ID = os.getenv("TTS_VOICE_ID", "gb_jane_neutral")

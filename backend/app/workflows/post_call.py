@@ -20,12 +20,12 @@ Decisions, Objections & handling, Integration answers, Deal snapshot, BANT statu
 Action items, Open questions. Be concise and factual."""
 
 FOLLOWUP_SYSTEM = """You are the Follow-up writer of Le Closer. Draft a follow-up email to the
-client (German company, formal tone, English). Structure: greeting with title+surname,
+client in the appropriate language and tone for the supplied context. Structure: greeting with title+surname,
 summary, answers, next steps, attachments. No hype, precise facts."""
 
-CULTURAL_BRIEF_SYSTEM = """You are the Cultural briefer of Le Closer. Write a pre-call cultural
-briefing for a German B2B client (direct, factual, formal 'Sie', detail/data over hype,
-GDPR & EU hosting, works council, consent to record). Max 10 bullet lines."""
+CULTURAL_BRIEF_SYSTEM = """Offer a brief, respectful communication briefing using the supplied
+client context. Ask about preferred language, formality and terminology. Mention possible differences as
+possibilities, never traits of a person or assumptions from nationality. Max 6 bullet lines."""
 
 
 async def run_post_call(state: CallState, store: CallStore) -> None:
@@ -33,7 +33,7 @@ async def run_post_call(state: CallState, store: CallStore) -> None:
     transcript = "\n".join(f"{s.speaker.upper()}: {s.text}" for s in state.segments[-80:])
     notes_md = await chat_text(
         config.HEAVY_MODEL, NOTES_SYSTEM,
-        f"Transcript:\n{transcript}\n\nFacts: {state.facts.model_dump()}\nFlow: {state.flow.model_dump()}",
+        f"Personal notes: {state.personal_notes}\nLive notes: {state.notes}\nActions: {[t.model_dump() for t in state.tasks]}\nTranscript:\n{transcript}\n\nFacts: {state.facts.model_dump()}\nFlow: {state.flow.model_dump()}",
     )
     state.notes = {"markdown": notes_md or "# Post-call notes\n(No API key — mock notes.)", "ts": time.time()}
     await store.emit(state.call_id, "notes.ready", state.notes)

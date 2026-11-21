@@ -1,0 +1,55 @@
+<div id="call-theme-palettes">
+  <style>
+    #call-theme-palettes { color: var(--foreground); font-family: inherit; }
+    #call-theme-palettes section { padding: 18px 0; border-bottom: 1px solid var(--border); }
+    #call-theme-palettes section:first-of-type { padding-top: 0; }
+    #call-theme-palettes section:last-of-type { border-bottom: 0; }
+    #call-theme-palettes h3 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+    #call-theme-palettes .mood { color: var(--muted-foreground); font-size: 13px; margin-bottom: 14px; }
+    #call-theme-palettes .swatches { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+    #call-theme-palettes .color { height: 56px; background: var(--swatch); border: 1px solid var(--border); border-radius: 5px; }
+    #call-theme-palettes .role { font-size: 12px; margin-top: 6px; color: var(--muted-foreground); }
+    #call-theme-palettes .hex { font-family: ui-monospace,monospace; font-size: 12px; margin-top: 2px; color: var(--foreground); }
+    @media(max-width:380px) { #call-theme-palettes .swatches { gap: 6px; } }
+  </style>
+  <section aria-label="Palette one: Paper and forest">
+    <h3>1. Paper &amp; forest</h3>
+    <div class="mood">Warm, calm, editorial. My pick for Le Closer.</div>
+    <div class="swatches">
+      <div><div class="color" style="--swatch:#F6F4EF"></div><div class="role">Background</div><div class="hex">#F6F4EF</div></div>
+      <div><div class="color" style="--swatch:#FFFFFF"></div><div class="role">Panels</div><div class="hex">#FFFFFF</div></div>
+      <div><div class="color" style="--swatch:#242925"></div><div class="role">Text</div><div class="hex">#242925</div></div>
+      <div><div class="color" style="--swatch:#4D6655"></div><div class="role">Accent</div><div class="hex">#4D6655</div></div>
+    </div>
+  </section>
+  <section aria-label="Palette two: Chalk and brick">
+    <h3>2. Chalk &amp; brick</h3>
+    <div class="mood">Warm white and terracotta. More character, still professional.</div>
+    <div class="swatches">
+      <div><div class="color" style="--swatch:#FAF8F5"></div><div class="role">Background</div><div class="hex">#FAF8F5</div></div>
+      <div><div class="color" style="--swatch:#FFFFFF"></div><div class="role">Panels</div><div class="hex">#FFFFFF</div></div>
+      <div><div class="color" style="--swatch:#292524"></div><div class="role">Text</div><div class="hex">#292524</div></div>
+      <div><div class="color" style="--swatch:#A34835"></div><div class="role">Accent</div><div class="hex">#A34835</div></div>
+    </div>
+  </section>
+  <section aria-label="Palette three: Porcelain and denim">
+    <h3>3. Porcelain &amp; denim</h3>
+    <div class="mood">Cool neutrals and muted blue. Crisp, familiar work software.</div>
+    <div class="swatches">
+      <div><div class="color" style="--swatch:#F4F6F8"></div><div class="role">Background</div><div class="hex">#F4F6F8</div></div>
+      <div><div class="color" style="--swatch:#FFFFFF"></div><div class="role">Panels</div><div class="hex">#FFFFFF</div></div>
+      <div><div class="color" style="--swatch:#253142"></div><div class="role">Text</div><div class="hex">#253142</div></div>
+      <div><div class="color" style="--swatch:#31516E"></div><div class="role">Accent</div><div class="hex">#31516E</div></div>
+    </div>
+  </section>
+  <section aria-label="Palette four: Graphite and sand">
+    <h3>4. Graphite &amp; sand</h3>
+    <div class="mood">A quieter dark theme. Charcoal, warm text, subtle brass.</div>
+    <div class="swatches">
+      <div><div class="color" style="--swatch:#1F2325"></div><div class="role">Background</div><div class="hex">#1F2325</div></div>
+      <div><div class="color" style="--swatch:#292E31"></div><div class="role">Panels</div><div class="hex">#292E31</div></div>
+      <div><div class="color" style="--swatch:#ECEAE4"></div><div class="role">Text</div><div class="hex">#ECEAE4</div></div>
+      <div><div class="color" style="--swatch:#C5AC84"></div><div class="role">Accent</div><div class="hex">#C5AC84</div></div>
+    </div>
+  </section>
+</div>

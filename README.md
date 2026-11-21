@@ -53,7 +53,7 @@ Saving Python files restarts the backend. Press **Ctrl+C** to stop.
 ./dev --force-recreate
 ```
 
-If frontend dependencies changed, also update their container volume:
+Frontend startup automatically refreshes the dependency volume when `package.json` or `package-lock.json` changes. To sync an already running frontend immediately:
 
 ```bash
 docker compose -f docker-compose.dev.yml exec frontend npm ci
@@ -131,7 +131,7 @@ npm run dev                  # http://localhost:5173
 ```
 
 Open the UI → enter client (default: **Müller Logistik GmbH**, Dr. Anna Weber) → enable
-**demo mode** → **Start demo call** → ▶ **Play demo script**.
+**demo mode** → **Start demo call** → **Start** in the navigation bar.
 
 No API key? Everything still runs end-to-end in mock mode (deterministic router,
 canned integration verdicts, plain-Python deal maths) so the demo works offline.
@@ -250,3 +250,22 @@ Regression checks: `cd backend && python3 -m unittest test_live_meet -v`.
 
 - [@n-bhar](https://github.com/n-bhar)
 - [@chrismatton](https://github.com/chrismatton)
+
+## Live call assistance
+
+- **Live copilot:** address “Copilot, can you answer…” / “Le Closer” in the transcribed call audio. Each answer appears as a new card in **Live copilot**, using the meeting context. The mute button beside the **Live copilot** title controls spoken answers through Mistral Voxtral TTS. Answers are unmuted by default; mute to stop playback. The audio player remains available if the browser blocks autoplay. This does not inject audio into Google Meet.
+- **Translate transcript:** select a target language in the **Transcript** header. Original speech remains visible, with translation and any idiom/slang explanation below each completed utterance. Changing language also translates the ten most recent segments. Source language is detected automatically; older segments retain their original translations. Cultural cards explain possible meanings and clarification questions without assuming traits from nationality.
+- **Live notes:** the Notes tool updates during the call. Your separately saved notes stay intact and inform the final summary. Actions can be checked manually; the notes agent also checks actions when participants explicitly confirm completion.
+- **Follow-up agents:** a notes specialist and a loose-ends specialist work concurrently. They track unresolved questions, suggest follow-ups, and surface answers supported by the transcript. New suggested questions appear as cards for the rep to ask. Updates are serialized per call and coalesced when the conversation moves faster than inference. These are independent Mistral inference tasks orchestrated in this backend, not durable hosted agent deployments.
+- **Prototypes:** describe a product in the Prototype tool and choose an interactive HTML app with source code, or an end-product concept image. For images, select **Based on our call, generate an image** to use the transcript and notes without writing a new prompt. Requirements from the call are included. Generation runs in the background and reports progress/errors in the activity feed. Generated HTML runs in an isolated iframe with network access disabled.
+
+All new model requests use the server-side `MISTRAL_API_KEY`. Optional model/voice overrides are listed in `.env.example`. Speech uses Mistral's `/v1/audio/speech`; images use the Conversations API's `image_generation` tool and file download API. Image generation is routed through Mistral but may use its image partner rather than a Mistral-owned image model. Account/model access is required. No API key is sent to the browser. Without a key, notes, follow-up tracking and code previews have offline examples; translation, speech, and real images require API access. Calls and artifacts still use the app's existing in-memory storage.
+
+Feature regressions (mocked provider responses, no paid API requests):
+
+```bash
+cd backend
+python3 -m unittest test_live_assistant test_live_meet test_mistral_responses -v
+```
+
+Copilot cards render Markdown (headings, emphasis, lists, code, links and tables). Long answers can be expanded. Provider thinking/tool chunks are filtered before text reaches cards, notes or speech. Image results support both Mistral tool-file downloads and HTTPS URLs returned in tool execution results.

@@ -31,6 +31,21 @@ def get_client():
     return _client
 
 
+def response_text(content: Any) -> str:
+    """Only user-facing text; never stringify SDK thinking/tool chunks."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts = []
+    for chunk in content:
+        kind = chunk.get("type") if isinstance(chunk, dict) else getattr(chunk, "type", None)
+        text = chunk.get("text") if isinstance(chunk, dict) else getattr(chunk, "text", None)
+        if kind == "text" and isinstance(text, str):
+            parts.append(text)
+    return "".join(parts)
+
+
 async def chat_json(model: str, system: str, user: str, temperature: float = 0.2) -> dict[str, Any]:
     """Call chat completions and parse a JSON object out of the response."""
     client = get_client()
@@ -50,7 +65,7 @@ async def chat_json(model: str, system: str, user: str, temperature: float = 0.2
         )
 
     resp = await asyncio.to_thread(_call)  # sync SDK must not block the event loop
-    content = resp.choices[0].message.content or "{}"
+    content = response_text(resp.choices[0].message.content) or "{}"
     try:
         return json.loads(content)
     except json.JSONDecodeError:
@@ -75,7 +90,7 @@ async def chat_text(model: str, system: str, user: str, temperature: float = 0.4
         )
 
     resp = await asyncio.to_thread(_call)
-    return resp.choices[0].message.content or ""
+    return response_text(resp.choices[0].message.content)
 
 
 # ---------------------------------------------------------------------------

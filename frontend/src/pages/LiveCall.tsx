@@ -5,7 +5,6 @@ import FlowPanel from "../components/flow/FlowPanel";
 import CardsPanel from "../components/cards/CardsPanel";
 import RightTabs from "../components/tabs/RightTabs";
 import ActivityBar from "../components/ActivityBar";
-import AudioControls from "../components/AudioControls";
 import BrowserAudioControls from "../components/BrowserAudioControls";
 import { useCallStore } from "../store/callStore";
 
@@ -18,9 +17,9 @@ export default function LiveCall({ onEndCall }: { onEndCall: () => void }) {
     <div className="live-page">
       <TopBar onEndCall={onEndCall} />
       <main className="live-main">
-        {!ended && <section className="audio-setup">
-          <div className="audio-heading"><Headphones size={19} className="text-accent" /><div><h2>{demo ? "Explore a sample call" : "Connect your call audio"}</h2><p>{demo ? "Play the script to see your copilot in action, or add a line below." : "Confirm consent, then share the Google Meet tab with audio enabled."}</p></div></div>
-          {demo ? <AudioControls /> : <BrowserAudioControls />}
+        {!ended && !demo && <section className="audio-setup">
+          <div className="audio-heading"><Headphones size={19} className="text-accent" /><div><h2>Connect your call audio</h2><p>Confirm consent, then share the Google Meet tab with audio enabled.</p></div></div>
+          <BrowserAudioControls />
         </section>}
         <nav className="mobile-views" aria-label="Workspace sections">{VIEWS.map((name) => <button key={name} aria-pressed={view === name} onClick={() => setView(name)}>{name}</button>)}</nav>
         <div className="workspace-grid">

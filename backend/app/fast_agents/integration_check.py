@@ -2,6 +2,8 @@
 (IntegrationCheckWorkflow) produces the real researched answer (F3)."""
 from ..router import add_card, add_task, new_id
 from ..models import Card, Task
+from .. import config
+from ..mistral_client import chat_text, has_api_key
 
 _MOCK_VERDICTS = {
     "sap": ("via API + MCP connector",
@@ -26,21 +28,32 @@ async def run(state, store, segment, label) -> None:
         id=new_id("task"), title=f"Check {entity} integration",
         owner="agent", origin="integration", status="working",
     )
-    await add_task(state, store, task)
+    task = await add_task(state, store, task)
     await store.log_activity(state, "IntegrationCheck", f"researching {entity}…", "working")
 
-    # Simulate the slow workflow finishing shortly (real impl: Mistral Workflow)
-    import asyncio
-    await asyncio.sleep(1.5)
+    if has_api_key():
+        from ..knowledge.search import search
+        evidence = search(entity)
+        body = await chat_text(config.HEAVY_MODEL,
+            "You are an integration specialist. Use the supplied internal evidence to answer the question. "
+            "Distinguish documented capabilities from proposed approaches. Do not invent native connectors, "
+            "sources, or a completed web search. If evidence is insufficient, explain what must be verified. "
+            "Return at most 100 words: a direct answer, the key uncertainty, and one useful follow-up question. "
+            "Use short Markdown paragraphs or bullets.",
+            f"Question: {segment.text}\nIntegration: {entity}\nInternal evidence: {evidence}")
+        verdict = "Assessment — verify with technical owner"
+    else:
+        body = "Demo example (unverified): " + body
     task.status = "ready"
     await store.emit(state.call_id, "task.upsert", task.model_dump())
-    await add_card(state, store, Card(
+    card = await add_card(state, store, Card(
         id=new_id("card"), kind="integration",
         title=f"Integration: {entity}",
         body=f"**{verdict}.** {body}",
-        sources=["Mistral docs", f"{entity} API docs"],
+        sources=[],
         confidence=0.86, segment_id=segment.id,
-        meta={"entity": entity, "verdict": verdict, "prototype_available": verdict.startswith("via API")},
+        meta={"entity": entity, "verdict": verdict, "prototype_available": True},
     ))
-    task.result_ref = state.cards[-1].id
+    task.result_ref = card.id if card else None
+    await store.emit(state.call_id, "task.upsert", task.model_dump())
     await store.log_activity(state, "IntegrationCheck", f"{entity}: {verdict} (86%)", "done")

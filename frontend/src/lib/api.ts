@@ -13,9 +13,12 @@ export async function api(path: string, method = "GET", body?: any) {
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
-    if (!resp.ok) return { error: resp.status >= 500
-      ? "The server is unavailable. Please try again in a moment."
-      : `The request could not be completed (${resp.status}). Please try again.` };
+    if (!resp.ok) {
+      const detail = await resp.json().catch(() => ({}));
+      return { error: typeof detail.detail === "string" ? detail.detail : resp.status >= 500
+        ? "The server is unavailable. Please try again in a moment."
+        : `The request could not be completed (${resp.status}). Please try again.` };
+    }
     const text = await resp.text();
     if (!text) return { error: "The server returned an empty response. Please try again." };
     return JSON.parse(text);

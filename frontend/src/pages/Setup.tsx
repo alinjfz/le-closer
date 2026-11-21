@@ -80,7 +80,7 @@ export default function Setup({ onStart }: { onStart: () => void }) {
     <div className="setup-page">
       <header className="setup-header">
         <a className="brand" href="/" aria-label="Le Closer home"><AudioLines size={25} /><span>Le Closer<span className="brand-period">.</span></span></a>
-        <span className="text-sm text-slate-400">Your sales call copilot</span>
+        <span className="text-sm text-muted">Your sales call copilot</span>
       </header>
       <main className="setup-main">
         <div className="setup-intro">
@@ -95,7 +95,7 @@ export default function Setup({ onStart }: { onStart: () => void }) {
           <p className="setup-footnote">You control audio capture and approve follow-up emails before they’re sent.</p>
         </div>
         <form className="setup-form" onSubmit={(event) => { event.preventDefault(); void start(); }}>
-          <div className="mb-6"><h2 className="text-2xl font-semibold tracking-tight">Set up your call</h2><p className="text-sm text-slate-400 mt-2">A little context helps your copilot get started.</p></div>
+          <div className="mb-6"><h2 className="text-2xl font-semibold tracking-tight">Set up your call</h2><p className="text-sm text-muted mt-2">A little context helps your copilot get started.</p></div>
           <fieldset disabled={loading} className="space-y-6 min-w-0">
             <legend className="sr-only">Call details</legend>
             <div className="mode-picker" role="group" aria-label="Call mode">
@@ -110,12 +110,12 @@ export default function Setup({ onStart }: { onStart: () => void }) {
             {!demo && <div className="meeting-field">
               <label className="field-label" htmlFor="meet">Google Meet link <span className="field-hint">Optional</span></label>
               <div className="flex gap-2 mt-2"><input id="meet" type="url" value={meetUrl} onChange={(e) => setMeetUrl(e.target.value)} placeholder="https://meet.google.com/…" className="min-w-0 flex-1" /><button type="button" onClick={createSpace} className="secondary-button whitespace-nowrap" title="Create a meeting with Google Meet">Create link</button></div>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">Keep a meeting link for reference. You’ll share tab audio after opening the workspace.</p>
+              <p className="text-xs text-muted mt-2 leading-relaxed">Keep a meeting link for reference. You’ll share tab audio after opening the workspace.</p>
             </div>}
           </fieldset>
-          {error && <p role="alert" className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
+          {error && <p role="alert" className="mt-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{error}</p>}
           <button type="submit" disabled={loading} className="primary-button w-full mt-6">{loading ? <><Loader2 size={18} className="animate-spin" /> Preparing workspace…</> : demo ? <><Play size={17} /> Open demo workspace</> : <><Radio size={17} /> Open call workspace</>}</button>
-          <p className="text-xs text-slate-400 text-center mt-3">{demo ? "Explore with a scripted conversation. No microphone needed." : "Audio starts only when you share it. No bot joins your call."}</p>
+          <p className="text-xs text-muted text-center mt-3">{demo ? "Explore with a scripted conversation. No microphone needed." : "Audio starts only when you share it. No bot joins your call."}</p>
           <div className="resume-row"><span>Picking up where you left off?</span><button type="button" onClick={resumeLatest} disabled={loading}><RotateCcw size={14} /> Resume latest call</button></div>
         </form>
       </main>

@@ -14,7 +14,7 @@ ROUTER_SYSTEM = """You are the Router agent of Le Closer, a live sales copilot.
 Classify the latest sales-call segment into one or more labels.
 Labels: product_question, integration_question, objection, competitor_mention,
 buying_signal, risk_signal, promise, number_fact, decision_process,
-cultural_signal, stage_hint, none.
+cultural_signal (including slang, idioms and ambiguous cross-language expressions), suggested_question, stage_hint, none.
 Return JSON: {"labels": [{"type": ..., "confidence": 0-1, "entity": ..., "text": ...}]}
 Only include labels with confidence >= 0.7."""
 
@@ -63,6 +63,23 @@ async def dispatch_labels(state: CallState, store: CallStore, segment, labels: l
         await mindmap.run(state, store, segment, {})
 
 
+
+async def run_segment(state: CallState, store: CallStore, segment) -> None:
+    """Independent specialists keep notes/translation responsive if routing is slow or fails."""
+    from .live_assistant import process_segment, translate_segment
+
+    async def classified_agents():
+        try:
+            result = await route_segment(state, store, segment)
+            if not state.ended:
+                await dispatch_labels(state, store, segment, result.get("labels", []))
+        except Exception as exc:
+            await store.log_activity(state, "Router", str(exc)[:300], "error")
+
+    await asyncio.gather(classified_agents(), translate_segment(state, store, segment),
+                         process_segment(state, store, segment))
+
+
 def upsert_card(state: CallState, card: Card) -> Card:
     """Update existing card on same topic, else append. Enforce max active cards."""
     for existing in state.cards:
@@ -80,22 +97,24 @@ def upsert_card(state: CallState, card: Card) -> Card:
     return card
 
 
-async def add_card(state: CallState, store: CallStore, card: Card) -> None:
+async def add_card(state: CallState, store: CallStore, card: Card) -> Card | None:
     if card.confidence < config.CARD_CONFIDENCE_THRESHOLD:
         return
     card = upsert_card(state, card)
     await store.emit(state.call_id, "card.upsert", card.model_dump())
+    return card
 
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
-async def add_task(state: CallState, store: CallStore, task: Task) -> None:
+async def add_task(state: CallState, store: CallStore, task: Task) -> Task:
     # dedupe: same title already tracked → just refresh it
     for existing in state.tasks:
         if existing.title == task.title and existing.status in ("queued", "working"):
             await store.emit(state.call_id, "task.upsert", existing.model_dump())
-            return
+            return existing
     state.tasks.append(task)
     await store.emit(state.call_id, "task.upsert", task.model_dump())
+    return task

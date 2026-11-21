@@ -26,7 +26,7 @@ export default function MindMap() {
     if (view !== "map" || !hasContent || !svgRef.current) return;
     const map = Markmap.create(svgRef.current, {
       duration: 0, maxInitialScale: 1.4, scrollForPan: false, maxWidth: 220, spacingHorizontal: 60, spacingVertical: 16,
-      paddingX: 12, color: (node) => ["#fbbf24", "#7dd3fc", "#c4b5fd", "#6ee7b7", "#fda4af"][node.state.path.split(".")[1] ? Number(node.state.path.split(".")[1]) % 5 : 0],
+      paddingX: 12, color: () => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
     });
     mmRef.current = map;
     firstRender.current = true;
@@ -86,8 +86,8 @@ export default function MindMap() {
           <svg ref={svgRef} role="img" aria-label="Interactive call mind map. Drag to pan, scroll to zoom, and click a branch circle to collapse it." />
           <div className="map-navigation" role="group" aria-label="Map navigation"><button onClick={() => zoom(1.25)} aria-label="Zoom in" title="Zoom in"><Plus size={17} /></button><button onClick={() => zoom(.8)} aria-label="Zoom out" title="Zoom out"><Minus size={17} /></button><button onClick={() => void mmRef.current?.fit()} aria-label="Fit mind map to view" title="Fit to view"><Focus size={17} /></button></div>
         </div>}
-      {error && <p role="alert" className="text-sm text-red-300 mt-2">{error}</p>}
-      {hasContent && <div className="tool-footer"><span>{branches} topic{branches === 1 ? "" : "s"}</span>{view === "map" && <button className="text-slate-200 hover:text-accent" onClick={() => setDetails(!details)}>{details ? "Collapse all" : "Expand all"}</button>}{view === "map" && <label><input type="checkbox" checked={autoFit} onChange={(e) => setAutoFit(e.target.checked)} /> Auto-fit updates</label>}</div>}
+      {error && <p role="alert" className="text-sm text-danger mt-2">{error}</p>}
+      {hasContent && <div className="tool-footer"><span>{branches} topic{branches === 1 ? "" : "s"}</span>{view === "map" && <button className="text-copy hover:text-accent" onClick={() => setDetails(!details)}>{details ? "Collapse all" : "Expand all"}</button>}{view === "map" && <label><input type="checkbox" checked={autoFit} onChange={(e) => setAutoFit(e.target.checked)} /> Auto-fit updates</label>}</div>}
       {hasContent && view === "map" && <p className="map-hint">Drag to explore · Scroll to zoom · Click circles to fold branches</p>}
     </div>
   );

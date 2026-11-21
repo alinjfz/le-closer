@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X } from "lucide-react";
+import LiveNotes from "./LiveNotes";
 import TodoList from "./TodoList";
 import MindMap from "./MindMap";
 import PrototypeFrame from "./PrototypeFrame";
 import NumbersPanel from "./NumbersPanel";
 import { useCallStore } from "../../store/callStore";
 
-const TABS = ["To-do", "Mind map", "Prototype", "Numbers"] as const;
-const LABELS = { "To-do": "Actions", "Mind map": "Mind map", "Prototype": "Prototypes", "Numbers": "Deal numbers" };
+const TABS = ["To-do", "Notes", "Mind map", "Prototype", "Numbers"] as const;
+const LABELS = { "Notes": "Live notes", "To-do": "Actions", "Mind map": "Mind map", "Prototype": "Prototypes", "Numbers": "Deal numbers" };
 
 export default function RightTabs() {
   const tab = useCallStore((s) => s.activeTab);
@@ -26,7 +27,7 @@ export default function RightTabs() {
     return () => { dialog?.close(); expandRef.current?.focus(); };
   }, [expanded]);
   const panel = <div className={`workspace-panel call-tools-panel ${expanded ? "tools-expanded" : ""}`}>
-    <div className="panel-heading"><div><h2>{expanded ? "Call workspace" : "Call tools"}</h2>{expanded && <p className="text-sm text-slate-400 mt-1">Explore the details without leaving your call.</p>}</div><button ref={expanded ? undefined : expandRef} className="tool-icon-button" onClick={() => setExpanded(!expanded)} aria-label={expanded ? "Close expanded workspace" : "Expand call tools"} title={expanded ? "Close workspace (Esc)" : "Expand workspace"}>{expanded ? <X size={18} /> : <Maximize2 size={17} />}</button></div>
+    <div className="panel-heading"><div><h2>{expanded ? "Call workspace" : "Call tools"}</h2>{expanded && <p className="text-sm text-muted mt-1">Explore the details without leaving your call.</p>}</div><button ref={expanded ? undefined : expandRef} className="tool-icon-button" onClick={() => setExpanded(!expanded)} aria-label={expanded ? "Close expanded workspace" : "Expand call tools"} title={expanded ? "Close workspace (Esc)" : "Expand workspace"}>{expanded ? <X size={18} /> : <Maximize2 size={17} />}</button></div>
     <div className="call-tool-tabs" role="tablist" aria-label="Call tools">
       {TABS.map((t, i) => {
         const count = t === "To-do" ? tasks.filter((task) => task.status !== "done").length : t === "Prototype" ? prototypes.length : 0;
@@ -37,7 +38,7 @@ export default function RightTabs() {
       })}
     </div>
     <div className="call-tool-content" role="tabpanel" id="call-tool-panel" aria-labelledby={`tool-tab-${TABS.indexOf(active as typeof TABS[number])}`} tabIndex={0}>
-      {active === "To-do" && <TodoList />}{active === "Mind map" && <MindMap />}{active === "Prototype" && <PrototypeFrame />}{active === "Numbers" && <NumbersPanel />}
+      {active === "Notes" && <LiveNotes />}{active === "To-do" && <TodoList />}{active === "Mind map" && <MindMap />}{active === "Prototype" && <PrototypeFrame />}{active === "Numbers" && <NumbersPanel />}
     </div>
   </div>;
   return expanded ? createPortal(<dialog ref={dialogRef} className="tools-dialog" aria-label="Expanded call tools" onCancel={() => setExpanded(false)}>{panel}</dialog>, document.body) : panel;

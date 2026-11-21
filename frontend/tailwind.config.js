@@ -4,9 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0f172a",
-        panel: "#1e293b",
-        accent: "#f59e0b",
+        ink: "#FFFFFF",
+        panel: "#FFFFFF",
+        accent: "#2563EB",
+        copy: "#172033",
+        muted: "#64748B",
+        line: "#E2E8F0",
+        wash: "#F1F5F9",
+        success: "#456850",
+        danger: "#9E3935",
+        warning: "#8C5F27",
       },
       keyframes: {
         "slide-in": {

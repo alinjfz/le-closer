@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export interface Segment { id: string; speaker: "rep" | "client"; text: string; start_ms: number; end_ms: number; }
+export interface Segment { id: string; speaker: "rep" | "client"; text: string; start_ms: number; end_ms: number; translation?: string; translation_language?: string; source_language?: string; cultural_note?: string; }
 export interface Card {
   id: string; kind: string; title: string; body: string; sources: string[];
   confidence: number; status: string; segment_id?: string; meta: Record<string, any>;
@@ -13,13 +13,16 @@ export interface ActivityEntry { agent: string; message: string; status: string;
 export interface ClientProfile { company: string; country: string; people: any[]; cultural_briefing?: string; industry: string; }
 
 interface CallState {
-  call_id: string; mode: string; demo: boolean; client: ClientProfile;
+  call_id: string; mode: string; demo: boolean; demo_status?: "idle" | "playing" | "finished"; client: ClientProfile;
   segments: Segment[]; cards: Card[]; tasks: Task[]; flow: FlowState;
   facts: DealFacts; numbers: DealNumbers | null; mindmap_md: string;
-  prototypes: { id: string; title: string; html: string }[];
+  prototypes: { id: string; title: string; html?: string; kind?: "code" | "image"; image_url?: string }[];
   activity: ActivityEntry[]; notes: any; followup_draft: string | null;
   followup_status: string; ended: boolean;
   meet_url: string | null; bot_status: string; bot_detail: string; started_at: number;
+  settings: { tts_enabled: boolean; translation_language: string };
+  assistant_answers: { id: string; question: string; text: string; ts: number }[];
+  personal_notes: string;
   rep_name: string;
 }
 
@@ -50,6 +53,7 @@ const initialCall: CallState = {
   facts: { currency: "EUR" }, numbers: null, mindmap_md: "# Call",
   prototypes: [], activity: [], notes: null, followup_draft: null,
   followup_status: "none", ended: false,
+  settings: { tts_enabled: true, translation_language: "" }, assistant_answers: [], personal_notes: "",
   meet_url: null, bot_status: "offline", bot_detail: "", started_at: 0, rep_name: "You",
 };
 
@@ -74,6 +78,10 @@ export const useCallStore = create<Store>((set) => ({
         delete partials[payload.speaker];
         return { call: { ...call, segments: [...call.segments, payload] }, partials };
       }
+      case "transcript.translation": return { call: { ...call, segments: call.segments.map((segment) => segment.id === payload.id ? payload : segment) } };
+      case "assistant.settings": return { call: { ...call, settings: payload } };
+      case "assistant.answer": return { call: { ...call, assistant_answers: [...(call.assistant_answers || []), payload].slice(-30) } };
+      case "notes.personal": return { call: { ...call, personal_notes: payload } };
       case "card.upsert": {
         const idx = call.cards.findIndex((c) => c.id === payload.id);
         const cards = idx >= 0 ? call.cards.map((c, i) => (i === idx ? payload : c)) : [...call.cards, payload];
@@ -89,6 +97,7 @@ export const useCallStore = create<Store>((set) => ({
       case "mindmap.update": return { call: { ...call, mindmap_md: payload } };
       case "prototype.ready": return { call: { ...call, prototypes: [...call.prototypes, payload] }, activeTab: "Prototype" };
       case "activity.log": return { call: { ...call, activity: [...call.activity.slice(-199), payload] } };
+      case "demo.status": return { call: { ...call, demo_status: payload } };
       case "call.ended": return { call: { ...call, ended: true } };
       case "bot.status": return { call: { ...call, bot_status: payload.status, bot_detail: payload.detail } };
       case "meet.update": return { call: { ...call, meet_url: payload.meet_url } };

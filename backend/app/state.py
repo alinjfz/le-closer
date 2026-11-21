@@ -51,6 +51,29 @@ class CallStore:
     def __init__(self) -> None:
         self.bus = EventBus()
         self.calls: dict[str, CallState] = {}
+        self.assistant_locks: dict[str, asyncio.Lock] = {}
+        self.jobs: dict[str, set[asyncio.Task]] = {}
+        self.live_revisions: dict[str, int] = {}
+
+    def spawn(self, call_id: str, coroutine) -> asyncio.Task:
+        task = asyncio.create_task(coroutine)
+        jobs = self.jobs.setdefault(call_id, set())
+        jobs.add(task)
+        def finished(job):
+            jobs.discard(job)
+            if not job.cancelled():
+                job.exception()  # retrieve failures; pipeline handlers log actionable errors
+        task.add_done_callback(finished)
+        return task
+
+    async def stop_jobs(self, call_id: str):
+        jobs = list(self.jobs.pop(call_id, set()))
+        for job in jobs:
+            job.cancel()
+        if jobs:
+            await asyncio.gather(*jobs, return_exceptions=True)
+        self.assistant_locks.pop(call_id, None)
+        self.live_revisions.pop(call_id, None)
 
     def create_call(
         self,

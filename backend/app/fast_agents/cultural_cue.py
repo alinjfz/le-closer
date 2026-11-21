@@ -4,15 +4,15 @@ from ..mistral_client import chat_text
 from ..router import add_card, new_id
 from ..models import Card
 
-SYSTEM = """You are the Cultural-cue agent of Le Closer. The client is German (Müller Logistik,
-Dr. Anna Weber). Given a signal in the call, write a short cue card: what it may mean +
-suggested adjustment. Frame as common tendencies, never facts about the person. 2 lines."""
+SYSTEM = """Explain a slang phrase, idiom or communication mismatch in the supplied utterance.
+Explain possible meanings and a respectful clarification question. Use the speaker's words and context;
+never infer personality or intentions from nationality. State uncertainty. Two concise lines."""
 
 
 async def run(state, store, segment, label) -> None:
     body = await chat_text(
         config.ROUTER_MODEL, SYSTEM,
-        f"Signal: {segment.text}",
+        f"Client context: {state.client.country}. Signal: {segment.text}",
     )
     await add_card(state, store, Card(
         id=new_id("card"), kind="cultural",

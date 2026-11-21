@@ -10,14 +10,19 @@ from urllib.parse import urlparse
 
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+from typing import Literal
+
+from .models import AssistantSettings
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .models import CallState
 from .segments import make_segment, is_duplicate
 from .state import store
-from .router import route_segment, dispatch_labels
+from .router import run_segment
 from .workflows import post_call
 from .audio_gateway import VoxtralSession, get_sessions
 
@@ -40,6 +45,11 @@ async def lifespan(app):
     finally:
         for call_id in list(bot_tasks):
             await stop_bot(call_id)
+        for call_id in list(store.calls):
+            for session in list(get_sessions(call_id).values()):
+                await session.close()
+        for call_id in list(store.jobs):
+            await store.stop_jobs(call_id)
 
 
 app = FastAPI(title="Le Closer", version="0.1.0", lifespan=lifespan)
@@ -92,8 +102,8 @@ async def create_call(body: dict):
     )
     # pre-call research + cultural briefing
     from .workflows import research
-    asyncio.create_task(research.research_brief(state, store))
-    asyncio.create_task(post_call.cultural_briefing(state, store))
+    store.spawn(state.call_id, research.research_brief(state, store))
+    store.spawn(state.call_id, post_call.cultural_briefing(state, store))
     await store.log_activity(state, "LeCloser", f"call created ({state.client.company})", "done")
     if body.get("start_bot"):
         state.bot_status = "launching"
@@ -166,10 +176,15 @@ async def end_call(call_id: str):
     state = store.get(call_id)
     if not state:
         return {"error": "not found"}
+    if state.ended:
+        return {"ok": True}
     state.ended = True
     await stop_bot(call_id)
+    for session in list(get_sessions(call_id).values()):
+        await session.close()
+    await store.stop_jobs(call_id)
     await store.emit(call_id, "call.ended", {})
-    asyncio.create_task(post_call.run_post_call(state, store))
+    store.spawn(call_id, post_call.run_post_call(state, store))
     return {"ok": True}
 
 
@@ -179,7 +194,11 @@ async def inject(call_id: str, body: dict):
     state = store.get(call_id)
     if not state:
         return {"error": "not found"}
+    if state.ended:
+        raise HTTPException(409, "Call has ended")
     speaker = body.get("speaker", "client")
+    if speaker not in ("rep", "client"):
+        raise HTTPException(422, "Invalid speaker")
     text = body.get("text", "").strip()
     if not text:
         return {"error": "empty text"}
@@ -188,14 +207,13 @@ async def inject(call_id: str, body: dict):
     seg = make_segment(state, speaker, text)
     await store.emit(call_id, "transcript.segment", seg.model_dump())
     # dispatch agents in the background so the transcript is instant and cards stream in
-    asyncio.create_task(_dispatch(state, seg))
+    store.spawn(call_id, _dispatch(state, seg))
     return {"ok": True, "segment_id": seg.id}
 
 
 async def _dispatch(state: CallState, seg) -> None:
     try:
-        result = await route_segment(state, store, seg)
-        await dispatch_labels(state, store, seg, result.get("labels", []))
+        await run_segment(state, store, seg)
     except Exception as e:
         await store.log_activity(state, "pipeline", f"dispatch error: {e}", "error")
 
@@ -208,6 +226,10 @@ async def demo_play(call_id: str, body: dict | None = None):
     state = store.get(call_id)
     if not state:
         return {"error": "not found"}
+    if state.ended:
+        raise HTTPException(409, "Call has ended")
+    if state.demo_status == "playing":
+        return {"ok": True, "status": "playing"}
     script_path = Path(__file__).parent.parent / "demo" / "script.json"
     raw = json.loads(script_path.read_text()) if script_path.exists() else []
     lines = raw.get("lines", raw) if isinstance(raw, dict) else raw
@@ -217,23 +239,30 @@ async def demo_play(call_id: str, body: dict | None = None):
         {"speaker": "rep", "text": "I'll send you the security document this week."},
         {"speaker": "client", "text": "We are about 300 users and would need at least 25% discount."},
     ]
-    asyncio.create_task(_play_script(state, lines, body.get("delay", 2.0) if body else 2.0))
+    state.demo_status = "playing"
+    await store.emit(call_id, "demo.status", "playing")
+    store.spawn(call_id, _play_script(state, lines, body.get("delay", 2.0) if body else 2.0))
     return {"ok": True, "lines": len(lines)}
 
 
 async def _play_script(state: CallState, lines: list[dict], delay: float) -> None:
-    for line in lines:
-        if state.ended:
-            break
-        await asyncio.sleep(delay)
-        speaker = line.get("speaker", "client")
-        text = line.get("text", "")
-        if not text or is_duplicate(state, text):
-            continue
-        seg = make_segment(state, speaker, text)
-        await store.emit(state.call_id, "transcript.segment", seg.model_dump())
-        await _dispatch(state, seg)
-
+    try:
+        for line in lines:
+            if state.ended:
+                break
+            await asyncio.sleep(delay)
+            if state.ended:
+                break
+            speaker = line.get("speaker", "client")
+            text = line.get("text", "")
+            if not text or is_duplicate(state, text):
+                continue
+            seg = make_segment(state, speaker, text)
+            await store.emit(state.call_id, "transcript.segment", seg.model_dump())
+            await _dispatch(state, seg)
+    finally:
+        state.demo_status = "finished"
+        await store.emit(state.call_id, "demo.status", "finished")
 
 @app.post("/calls/{call_id}/cards/{card_id}")
 async def card_action(call_id: str, card_id: str, body: dict):
@@ -262,42 +291,109 @@ async def task_action(call_id: str, task_id: str, body: dict):
     for task in state.tasks:
         if task.id == task_id:
             if "status" in body:
+                if body["status"] not in ("queued", "working", "ready", "done"):
+                    raise HTTPException(422, "Invalid task status")
                 task.status = body["status"]
             await store.emit(call_id, "task.upsert", task.model_dump())
             return {"ok": True}
     return {"error": "task not found"}
 
 
-@app.post("/calls/{call_id}/prototype")
-async def prototype(call_id: str, body: dict):
-    """'Prototype this' button → PrototypeWorkflow (F10, D9)."""
+class PrototypeRequest(BaseModel):
+    topic: str = Field(default="", max_length=2000)
+    based_on_call: bool = False
+    kind: Literal["code", "image"] = "code"
+
+
+class QuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+
+class PersonalNotesRequest(BaseModel):
+    text: str = Field(max_length=20000)
+
+
+def active_call(call_id):
     state = store.get(call_id)
     if not state:
-        return {"error": "not found"}
-    topic = body.get("topic", "the integration")
-    safe = topic.replace("<", "&lt;").replace(">", "&gt;")
-    html = (
-        "<html><head><style>body{font-family:ui-sans-serif,system-ui,sans-serif;background:#0f172a;"
-        "color:#e2e8f0;margin:0;padding:20px} h2{color:#f59e0b;font-size:18px;margin:0 0 4px} "
-        ".sub{color:#94a3b8;font-size:12px;margin-bottom:16px} table{width:100%;border-collapse:collapse;"
-        "font-size:12px} td,th{border-bottom:1px solid #334155;padding:6px 8px;text-align:left} "
-        "th{color:#94a3b8;font-weight:600} .badge{display:inline-block;background:#14532d;color:#86efac;"
-        "border-radius:10px;padding:1px 8px;font-size:10px} button{background:#f59e0b;color:#0f172a;"
-        "border:none;border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer;margin-top:12px}</style></head>"
-        "<body><h2>Prototype: " + safe + "</h2>"
-        "<div class='sub'>Self-contained mock built live by Le Chonk — sandboxed iframe, no build step.</div>"
-        "<table><tr><th>Object</th><th>Direction</th><th>Sync</th><th>Status</th></tr>"
-        "<tr><td>Customs declarations</td><td>S/4HANA → Studio</td><td>every 15 min</td><td><span class='badge'>LIVE</span></td></tr>"
-        "<tr><td>Shipments</td><td>bi-directional</td><td>realtime</td><td><span class='badge'>LIVE</span></td></tr>"
-        "<tr><td>Invoices</td><td>Studio → S/4HANA</td><td>on approval</td><td><span class='badge'>QUEUED</span></td></tr></table>"
-        "<button onclick=\"this.textContent='Sync triggered ✓';this.disabled=true\">Run sync now</button>"
-        "</body></html>"
-    )
-    proto = {"id": f"proto_{int(time.time())}", "title": f"Prototype: {topic}", "html": html}
-    state.prototypes.append(proto)
-    await store.emit(call_id, "prototype.ready", proto)
-    await store.log_activity(state, "PrototypeWorkflow", f"prototype ready: {topic}", "done")
-    return {"ok": True, "prototype": proto}
+        raise HTTPException(404, "Call not found")
+    if state.ended:
+        raise HTTPException(409, "Call has ended")
+    return state
+
+
+@app.post("/calls/{call_id}/prototype")
+async def prototype(call_id: str, body: PrototypeRequest):
+    from .live_assistant import generate_prototype
+    state = active_call(call_id)
+    topic = body.topic.strip()
+    if body.based_on_call:
+        if body.kind != "image":
+            raise HTTPException(422, "Call-based generation requires image output")
+        if not state.segments and not state.notes and not state.personal_notes.strip():
+            raise HTTPException(422, "Capture some conversation or add notes before generating an image from the call.")
+        topic = "Visualize the end product discussed in our call" + (f". Additional direction: {topic}" if topic else "")
+    elif not topic:
+        raise HTTPException(422, "Describe what you want to generate")
+    store.spawn(call_id, generate_prototype(state, store, topic, body.kind))
+    return {"ok": True, "status": "working"}
+
+
+@app.post("/calls/{call_id}/assistant/settings")
+async def assistant_settings(call_id: str, body: AssistantSettings):
+    state = active_call(call_id)
+    from .mistral_client import has_api_key
+    changes = body.model_dump(exclude_unset=True)
+    if (changes.get("tts_enabled") or changes.get("translation_language")) and not has_api_key():
+        raise HTTPException(422, "Set MISTRAL_API_KEY to enable translation and spoken answers.")
+    previous_language = state.settings.translation_language
+    state.settings = state.settings.model_copy(update=changes)
+    await store.emit(call_id, "assistant.settings", state.settings.model_dump())
+    # Apply a new target to the visible recent transcript too.
+    if state.settings.translation_language and previous_language != state.settings.translation_language:
+        from .live_assistant import translate_segment
+        for segment in state.segments[-10:]:
+            store.spawn(call_id, translate_segment(state, store, segment))
+    return {"ok": True, "settings": state.settings.model_dump()}
+
+
+@app.post("/calls/{call_id}/assistant/ask")
+async def assistant_ask(call_id: str, body: QuestionRequest):
+    from .live_assistant import answer_question
+    state = active_call(call_id)
+    async def answer():
+        try:
+            await answer_question(state, store, body.question)
+        except Exception as exc:
+            await store.log_activity(state, "Copilot", str(exc)[:300], "error")
+    store.spawn(call_id, answer())
+    return {"ok": True, "status": "working"}
+
+
+@app.get("/calls/{call_id}/assistant/speech/{answer_id}")
+async def assistant_speech(call_id: str, answer_id: str):
+    from .mistral_media import generate_speech
+    state = active_call(call_id)
+    if not state.settings.tts_enabled:
+        raise HTTPException(409, "Spoken answers are off")
+    answer = next((a for a in state.assistant_answers if a['id'] == answer_id), None)
+    if not answer:
+        raise HTTPException(404, "Answer not found")
+    try:
+        audio = await generate_speech(answer['text'][:6000])
+    except Exception:
+        raise HTTPException(502, "Speech unavailable. Check Mistral TTS model and voice access.")
+    return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
+
+
+@app.post("/calls/{call_id}/notes/personal")
+async def personal_notes(call_id: str, body: PersonalNotesRequest):
+    state = store.get(call_id)
+    if not state:
+        raise HTTPException(404, "Call not found")
+    state.personal_notes = body.text
+    await store.emit(call_id, "notes.personal", body.text)
+    return {"ok": True}
 
 
 @app.post("/calls/{call_id}/followup/decision")

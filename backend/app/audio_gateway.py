@@ -20,6 +20,7 @@ from .state import CallStore
 class VoxtralSession:
     def __init__(self, state: CallState, store: CallStore, channel: str):
         self.state, self.store, self.channel = state, store, channel
+        self._closed = False
         self._partial = ""
         self._client = None
         self._reader = None
@@ -71,15 +72,17 @@ class VoxtralSession:
         seg = make_segment(self.state, self.channel, text)
         await self.store.emit(self.state.call_id, "transcript.segment", seg.model_dump())
 
+        if self.state.ended:
+            return
+
         async def dispatch():
             try:
-                from .router import route_segment, dispatch_labels
-                result = await route_segment(self.state, self.store, seg)
-                await dispatch_labels(self.state, self.store, seg, result.get("labels", []))
+                from .router import run_segment
+                await run_segment(self.state, self.store, seg)
             except Exception as exc:
                 await self.store.log_activity(self.state, "Transcription router", str(exc)[:500], "error")
 
-        task = asyncio.create_task(dispatch())
+        task = self.store.spawn(self.state.call_id, dispatch())
         self._dispatch_tasks.add(task)
         task.add_done_callback(self._dispatch_tasks.discard)
 
@@ -99,6 +102,9 @@ class VoxtralSession:
             await self._finalize()
 
     async def close(self):
+        if self._closed:
+            return
+        self._closed = True
         try:
             if self._client and self._reader and not self._reader.done():
                 await self._client.send(json.dumps({"type": "input_audio.end"}))

@@ -11,6 +11,10 @@ class Segment(BaseModel):
     text: str
     start_ms: int
     end_ms: int
+    translation: Optional[str] = None
+    translation_language: Optional[str] = None
+    source_language: Optional[str] = None
+    cultural_note: Optional[str] = None
 
 
 class Card(BaseModel):
@@ -86,10 +90,16 @@ class ActivityEntry(BaseModel):
     ts: float = 0.0
 
 
+class AssistantSettings(BaseModel):
+    tts_enabled: bool = True
+    translation_language: str = Field(default="", max_length=80)
+
+
 class CallState(BaseModel):
     call_id: str
     mode: Literal["sales", "brainstorm"] = "sales"
     demo: bool = False
+    demo_status: Literal["idle", "playing", "finished"] = "idle"
     client: ClientProfile = Field(default_factory=ClientProfile)
     segments: list[Segment] = Field(default_factory=list)
     cards: list[Card] = Field(default_factory=list)
@@ -108,4 +118,7 @@ class CallState(BaseModel):
     bot_status: str = "offline"   # offline | launching | joining | requested | in_call | capturing | waiting | left
     bot_detail: str = ""
     started_at: float = 0.0
+    settings: AssistantSettings = Field(default_factory=AssistantSettings)
+    assistant_answers: list[dict] = Field(default_factory=list)
+    personal_notes: str = ""
     rep_name: str = "You"         # display name for the rep channel
